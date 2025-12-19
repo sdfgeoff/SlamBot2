@@ -1,0 +1,10 @@
+[package]
+name = "packet_encoding"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+cobs = { version = "0.5.0", features=[], default-features = false}
+crc16 = "0.4.0"
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+serde_cbor = { version = "0.10", default-features = false }
