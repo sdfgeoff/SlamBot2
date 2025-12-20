@@ -9,3 +9,11 @@ test:
 clippy:
 	cd libraries && cargo clippy
 	cd motor_controller && cargo clippy
+
+fmt:
+	cd libraries && cargo fmt
+	cd motor_controller && cargo fmt
+
+fmt-check:
+	cd libraries && cargo fmt -- --check
+	cd motor_controller && cargo fmt -- --check

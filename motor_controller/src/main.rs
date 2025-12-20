@@ -8,19 +8,16 @@
 
 use esp_hal::time::{Duration, Instant};
 // use esp_backtrace as _;
-use esp_hal::{
-    Blocking, main
-};
+use esp_hal::{Blocking, main};
 
-use esp_hal::usb_serial_jtag::UsbSerialJtag;
 use esp_hal::gpio::{Level, Output, OutputConfig};
-use packet_encoding::{encode_packet, PacketEncodeErr};
+use esp_hal::usb_serial_jtag::UsbSerialJtag;
+use packet_encoding::{PacketEncodeErr, encode_packet};
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
 use heapless::Vec;
 use serde::Serialize;
-
 
 #[derive(Serialize)]
 struct CommandMessage {
@@ -34,23 +31,21 @@ enum MessageData {
     Response(Vec<u8, 80>),
 }
 
-
-
 #[derive(Serialize)]
 struct Message {
-    id: u32, // Unique identifier for the message
+    id: u32,            // Unique identifier for the message
     topic: Vec<u8, 10>, // Topic of the message
-    data: MessageData, // The actual message data
-    time: u64, // Timestamp of when the message was created, in microseconds since epoch 
-    seq: u8, // Sequence number, increments with each message on this particular topic
-    from: u16, // Address of who the message is from
-    to: u16, // Address of who the message is to
+    data: MessageData,  // The actual message data
+    time: u64,          // Timestamp of when the message was created, in microseconds since epoch
+    seq: u8,            // Sequence number, increments with each message on this particular topic
+    from: u16,          // Address of who the message is from
+    to: u16,            // Address of who the message is to
 }
 
-
-
-
-fn send_message(usb: &mut UsbSerialJtag<Blocking>, message: &impl Serialize) -> Result<(), PacketEncodeErr> {
+fn send_message(
+    usb: &mut UsbSerialJtag<Blocking>,
+    message: &impl Serialize,
+) -> Result<(), PacketEncodeErr> {
     let mut encode_buffer = [0u8; 600];
     encode_buffer[0] = 0; // COBS initial byte
     let encoded_size = encode_packet(message, &mut encode_buffer[1..])?;
@@ -63,14 +58,11 @@ fn send_message(usb: &mut UsbSerialJtag<Blocking>, message: &impl Serialize) -> 
     Ok(())
 }
 
-
-
 #[main]
 fn main() -> ! {
     let peripherals = esp_hal::init(esp_hal::Config::default());
 
     let mut led = Output::new(peripherals.GPIO8, Level::High, OutputConfig::default());
-
 
     let mut usb_serial = UsbSerialJtag::new(peripherals.USB_DEVICE);
 
@@ -89,7 +81,6 @@ fn main() -> ! {
         to: 0,
     };
 
-
     loop {
         let loopStartTime = Instant::now();
         if (loopStartTime - lastWriteTime) > Duration::from_millis(500) {
@@ -107,12 +98,10 @@ fn main() -> ! {
                 usb_serial.write(&[byte]).unwrap();
                 usb_serial.write(b"!").unwrap();
             }
-            Err(_) => {
-            }
+            Err(_) => {}
         }
     }
 }
-
 
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo) -> ! {
