@@ -1,5 +1,3 @@
-#[cfg(test)] extern crate std;
-
 use packet_encoding::{encode_packet, decode_packet, PacketEncodeErr, PacketDecodeErr};
 use serde::{Deserialize, Serialize};
 
@@ -109,5 +107,66 @@ fn test_empty_struct() {
     let mut decode_buffer = encode_buffer.clone();
     let decoded_message: EmptyStruct = decode_packet(&mut decode_buffer[..encoded_size]).unwrap();
     
+    assert_eq!(message, decoded_message);
+}
+
+
+#[test]
+fn test_schema_missing_optional_field() {
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct OldMessage {
+        id: u32,
+        value: i16,
+    }
+
+
+    fn yes() -> bool { true }
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct NewMessage {
+        id: u32,
+        value: i16,
+
+        #[serde(default = "yes")]
+        flag: bool, // New field
+    }
+
+    let old_message = OldMessage {
+        id: 123,
+        value: -456,
+    };
+
+    let mut encode_buffer = [0u8; 100];
+    let encoded_size = encode_packet(&old_message, &mut encode_buffer).unwrap();
+    
+    let mut decode_buffer = encode_buffer.clone();
+    let decoded_message: NewMessage = decode_packet(&mut decode_buffer[..encoded_size]).unwrap();
+    
+    assert_eq!(decoded_message.id, old_message.id);
+    assert_eq!(decoded_message.value, old_message.value);
+    assert_eq!(decoded_message.flag, true); // Default value for missing field
+}
+
+#[test]
+fn test_enum_structs() {
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct A {
+        x: u8,
+    }
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct B {
+        y: u16,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    enum MessageEnum {
+        VariantA(A),
+        VariantB(B),
+    }
+    let message = MessageEnum::VariantB(B { y: 7890 });
+    let mut encode_buffer = [0u8; 100];
+    let encoded_size = encode_packet(&message, &mut encode_buffer).unwrap();
+
+    let decoded_message: MessageEnum = decode_packet(&mut encode_buffer[..encoded_size]).unwrap();
     assert_eq!(message, decoded_message);
 }
