@@ -21,11 +21,6 @@ esp_bootloader_esp_idf::esp_app_desc!();
 use heapless::Vec;
 use serde::Serialize;
 
-#[derive(Serialize)]
-struct User {
-    user_id: u32,
-    password_hash: [u8; 4],
-}
 
 #[derive(Serialize)]
 struct CommandMessage {
@@ -55,7 +50,7 @@ struct Message {
 
 
 
-fn send_message(usb: &mut UsbSerialJtag<Blocking>, message: &(impl Serialize)) -> Result<(), PacketEncodeErr> {
+fn send_message(usb: &mut UsbSerialJtag<Blocking>, message: &impl Serialize) -> Result<(), PacketEncodeErr> {
     let mut encode_buffer = [0u8; 600];
     encode_buffer[0] = 0; // COBS initial byte
     let encoded_size = encode_packet(message, &mut encode_buffer[1..])?;
