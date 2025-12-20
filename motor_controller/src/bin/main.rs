@@ -14,7 +14,7 @@ use esp_hal::{
 
 use esp_hal::usb_serial_jtag::UsbSerialJtag;
 use esp_hal::gpio::{Level, Output, OutputConfig};
-use packet_encoding::{encode, PacketEncodeErr};
+use packet_encoding::{encode_packet, PacketEncodeErr};
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
@@ -58,7 +58,7 @@ struct Message {
 fn send_message(usb: &mut UsbSerialJtag<Blocking>, message: &(impl Serialize)) -> Result<(), PacketEncodeErr> {
     let mut encode_buffer = [0u8; 600];
     encode_buffer[0] = 0; // COBS initial byte
-    let encoded_size = encode(message, &mut encode_buffer[1..])?;
+    let encoded_size = encode_packet(message, &mut encode_buffer[1..])?;
     encode_buffer[encoded_size + 1] = 0x00; // COBS final byte
 
     usb.write(b"Start{").unwrap();
