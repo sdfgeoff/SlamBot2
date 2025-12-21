@@ -20,18 +20,6 @@ use heapless::Vec;
 use serde::Serialize;
 
 #[derive(Serialize)]
-struct CommandMessage {
-    uri: Vec<u8, 30>,
-    command: Vec<u8, 50>,
-}
-
-#[derive(Serialize)]
-enum MessageData {
-    Command(CommandMessage),
-    Response(Vec<u8, 80>),
-}
-
-#[derive(Serialize)]
 struct Message {
     id: u32,            // Unique identifier for the message
     topic: Vec<u8, 10>, // Topic of the message
