@@ -62,10 +62,6 @@ dependencies = [
 [[package]]
 name = "packet_router"
 version = "0.1.0"
-dependencies = [
- "packet_encoding",
- "serde",
-]
 
 [[package]]
 name = "proc-macro2"
