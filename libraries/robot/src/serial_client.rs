@@ -1,18 +1,17 @@
-use std::rc::Rc;
-use packet_encoding::{decode_packet, encode_packet, PacketFinder};
+use packet_encoding::{PacketFinder, decode_packet, encode_packet};
 use packet_router::Client;
-use serde::{Serialize};
+use packet_trait::PacketTrait;
+use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serial::SerialPort;
 use std::cell::RefCell;
-use packet_trait::PacketTrait;
+use std::rc::Rc;
 
 pub struct SerialClient<T: PacketTrait, V: SerialPort> {
     serialport: V,
     pub client: Rc<RefCell<Client<T>>>,
     packet_finder: PacketFinder,
 }
-
 
 impl<T: PacketTrait + DeserializeOwned + Serialize, V: SerialPort> SerialClient<T, V> {
     pub fn new(serialport: V) -> Self {
@@ -28,16 +27,20 @@ impl<T: PacketTrait + DeserializeOwned + Serialize, V: SerialPort> SerialClient<
         let mut mini_buffer: [u8; 256] = [0u8; 256];
         let read_bytes = self.serialport.read(&mut mini_buffer).unwrap_or(0);
         for byte in mini_buffer.iter().take(read_bytes) {
-            if let Some(packet) = self.packet_finder.push_byte(*byte) && !packet.is_empty(){
-                    let mut packet_data = packet.to_vec();
-                    match decode_packet::<T>(&mut packet_data) {
-                        Ok(packet) => {
-                            self.client.borrow_mut().router_to_client.push(Rc::new(packet));
-                        },
-                        Err(e) => {
-                            println!("Failed to decode packet: {:?} {:X?}", e, packet_data);
-                        }
-                    
+            if let Some(packet) = self.packet_finder.push_byte(*byte)
+                && !packet.is_empty()
+            {
+                let mut packet_data = packet.to_vec();
+                match decode_packet::<T>(&mut packet_data) {
+                    Ok(packet) => {
+                        self.client
+                            .borrow_mut()
+                            .client_to_router
+                            .push(packet);
+                    }
+                    Err(e) => {
+                        println!("Failed to decode packet: {:?} {:X?}", e, packet_data);
+                    }
                 }
             }
         }
@@ -51,13 +54,14 @@ impl<T: PacketTrait + DeserializeOwned + Serialize, V: SerialPort> SerialClient<
             match encode_packet(&packet, &mut encode_buffer[1..]) {
                 Ok(encoded_size) => {
                     encode_buffer[encoded_size + 1] = 0x00; // COBS final byte
-                    self.serialport.write_all(&encode_buffer[..encoded_size + 2]).unwrap();
-                },
+                    self.serialport
+                        .write_all(&encode_buffer[..encoded_size + 2])
+                        .unwrap();
+                }
                 Err(e) => {
                     println!("Failed to encode packet: {:?}", e);
                 }
             }
         }
-
     }
 }

@@ -16,19 +16,10 @@ use packet_encoding::{PacketEncodeErr, encode_packet};
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
-use heapless::Vec;
+use heapless::String;
 use serde::Serialize;
 
-#[derive(Serialize)]
-struct Message {
-    id: u32,            // Unique identifier for the message
-    topic: Vec<u8, 10>, // Topic of the message
-    data: u64,  // The actual message data
-    time: u64,          // Timestamp of when the message was created, in microseconds since epoch
-    seq: u8,            // Sequence number, increments with each message on this particular topic
-    from: u16,          // Address of who the message is from
-    to: u16,            // Address of who the message is to
-}
+use topics::*;
 
 fn send_message(
     usb: &mut UsbSerialJtag<Blocking>,
@@ -38,11 +29,7 @@ fn send_message(
     encode_buffer[0] = 0; // COBS initial byte
     let encoded_size = encode_packet(message, &mut encode_buffer[1..])?;
     encode_buffer[encoded_size + 1] = 0x00; // COBS final byte
-
-    usb.write(b"Start{").unwrap();
     usb.write(&encode_buffer[..encoded_size + 2]).unwrap();
-    usb.write(b"}End\r\n").unwrap();
-
     Ok(())
 }
 
@@ -56,14 +43,13 @@ fn main() -> ! {
 
     let mut lastWriteTime = Instant::now();
 
-    let mut message = Message {
-        id: 1,
-        topic: Vec::from_slice(b"auth").unwrap(),
-        data: 123456789,
+    let mut message = PacketFormat {
+        to: None,
+        from: None,
+        topic: String::try_from("ClockRequest").unwrap(),
+        data: PacketData::ClockRequest(ClockRequest { request_time: 0 }),
         time: 0,
-        seq: 0,
-        from: 0,
-        to: 0,
+        id: 0,
     };
 
     loop {
@@ -71,7 +57,6 @@ fn main() -> ! {
         if (loopStartTime - lastWriteTime) > Duration::from_millis(500) {
             message.time = Instant::now().duration_since_epoch().as_micros();
             send_message(&mut usb_serial, &message).unwrap();
-            message.seq = message.seq.wrapping_add(1);
             message.id = message.id.wrapping_add(1);
 
             lastWriteTime = loopStartTime;

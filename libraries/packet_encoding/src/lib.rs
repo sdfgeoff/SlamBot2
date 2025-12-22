@@ -2,9 +2,9 @@
 
 use cobs::{CobsEncoder, decode_in_place};
 use crc16::{ARC, State};
+use heapless::Vec;
 use serde::{Deserialize, Serialize};
 use serde_cbor::{Serializer, de::from_mut_slice, ser::SliceWrite};
-use heapless::Vec;
 
 #[derive(Debug)]
 pub enum PacketEncodeErr {
@@ -76,20 +76,16 @@ pub fn decode_packet<T: for<'a> Deserialize<'a>>(data: &mut [u8]) -> Result<T, P
     Ok(message)
 }
 
-
-
 pub struct PacketFinder {
     buffer: Vec<u8, 512>,
     max_buffer_size: usize,
 }
-
 
 impl Default for PacketFinder {
     fn default() -> Self {
         PacketFinder::new()
     }
 }
-
 
 impl PacketFinder {
     pub fn new() -> Self {
@@ -123,4 +119,3 @@ impl PacketFinder {
         None
     }
 }
-

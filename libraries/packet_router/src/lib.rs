@@ -1,14 +1,11 @@
+use packet_trait::PacketTrait;
 use std::cell::RefCell;
 use std::rc::Weak;
 use std::{collections::HashMap, rc::Rc};
-use packet_trait::PacketTrait;
 
 mod client;
 
 pub use client::Client;
-
-
-
 
 pub struct Router<T: PacketTrait> {
     clients_by_address: HashMap<u16, Weak<RefCell<Client<T>>>>,
@@ -67,6 +64,11 @@ impl<T: PacketTrait> Router<T> {
             }
         }
 
+        let subscribers_to_all_topic: Vec<u16> = address_by_topic
+            .get("all")
+            .cloned()
+            .unwrap_or_default();
+
         // Figure out where packets neeed to go based on 'to' address or topic subscription
         let mut packets_for_addresses: HashMap<u16, Vec<Rc<T>>> = HashMap::new();
         for packet in all_outgoing_packets.iter() {
@@ -77,14 +79,13 @@ impl<T: PacketTrait> Router<T> {
                     .push(packet.clone());
             } else {
                 let topic = packet.get_topic();
-                if topic == "all" {
-                    for address in clients_by_address.keys() {
-                        packets_for_addresses
-                            .entry(*address)
-                            .or_default()
-                            .push(packet.clone());
-                    }
-                } else if let Some(topic_addresses) = address_by_topic.get(topic) {
+                subscribers_to_all_topic.iter().for_each(|address| {
+                    packets_for_addresses
+                        .entry(*address)
+                        .or_default()
+                        .push(packet.clone());
+                });
+                if let Some(topic_addresses) = address_by_topic.get(topic) {
                     for address in topic_addresses {
                         packets_for_addresses
                             .entry(*address)
@@ -193,9 +194,9 @@ mod tests {
     fn test_client_registration() {
         let mut router: Router<TestPacket> = Router::new();
         let client = Rc::new(RefCell::new(Client::new()));
-        
+
         router.register_client(Rc::downgrade(&client));
-        
+
         assert_eq!(router.address_max, 1);
         assert_eq!(router.clients_by_address.len(), 1);
     }
@@ -203,24 +204,24 @@ mod tests {
     #[test]
     fn test_direct_address_routing() {
         let mut router: Router<TestPacket> = Router::new();
-        
+
         // Create two clients
         let client1 = Rc::new(RefCell::new(Client::new()));
         let client2 = Rc::new(RefCell::new(Client::new()));
-        
+
         router.register_client(Rc::downgrade(&client1));
         router.register_client(Rc::downgrade(&client2));
-        
+
         // Client 1 sends a packet directly to client 2 (address 2)
         let packet = TestPacket::new("test".to_string(), "hello".to_string()).with_to(2);
         client1.borrow_mut().send_packet(packet);
-        
+
         router.poll();
-        
+
         // Client 2 should receive the packet
         assert!(client2.borrow().has_packets());
         assert!(!client1.borrow().has_packets());
-        
+
         let received = client2.borrow_mut().receive_packet().unwrap();
         assert_eq!(received.topic, "test");
         assert_eq!(received.data, "hello");
@@ -230,34 +231,34 @@ mod tests {
     #[test]
     fn test_topic_subscription_routing() {
         let mut router: Router<TestPacket> = Router::new();
-        
+
         // Create three clients
         let client1 = Rc::new(RefCell::new(Client::new()));
         let client2 = Rc::new(RefCell::new(Client::new()));
         let client3 = Rc::new(RefCell::new(Client::new()));
-        
+
         router.register_client(Rc::downgrade(&client1));
         router.register_client(Rc::downgrade(&client2));
         router.register_client(Rc::downgrade(&client3));
-        
+
         // Client 2 and 3 subscribe to "sensor_data"
         client2.borrow_mut().subscribe("sensor_data".to_string());
         client3.borrow_mut().subscribe("sensor_data".to_string());
-        
+
         // Client 1 sends a packet to "sensor_data" topic
         let packet = TestPacket::new("sensor_data".to_string(), "temperature: 25C".to_string());
         client1.borrow_mut().send_packet(packet);
-        
+
         router.poll();
-        
+
         // Only clients 2 and 3 should receive the packet
         assert!(!client1.borrow().has_packets());
         assert!(client2.borrow().has_packets());
         assert!(client3.borrow().has_packets());
-        
+
         let received2 = client2.borrow_mut().receive_packet().unwrap();
         let received3 = client3.borrow_mut().receive_packet().unwrap();
-        
+
         assert_eq!(received2.topic, "sensor_data");
         assert_eq!(received2.from, Some(1));
         assert_eq!(received3.topic, "sensor_data");
@@ -267,27 +268,27 @@ mod tests {
     #[test]
     fn test_all_topic_broadcast() {
         let mut router: Router<TestPacket> = Router::new();
-        
+
         // Create three clients
         let client1 = Rc::new(RefCell::new(Client::new()));
         let client2 = Rc::new(RefCell::new(Client::new()));
         let client3 = Rc::new(RefCell::new(Client::new()));
-        
+
         router.register_client(Rc::downgrade(&client1));
         router.register_client(Rc::downgrade(&client2));
         router.register_client(Rc::downgrade(&client3));
-        
+
         // Client 1 sends a packet to "all" topic
         let packet = TestPacket::new("all".to_string(), "broadcast message".to_string());
         client1.borrow_mut().send_packet(packet);
-        
+
         router.poll();
-        
+
         // All clients should receive the packet
         assert!(client1.borrow().has_packets());
         assert!(client2.borrow().has_packets());
         assert!(client3.borrow().has_packets());
-        
+
         // Check that all received the same message
         for client in [&client1, &client2, &client3] {
             let received = client.borrow_mut().receive_packet().unwrap();
@@ -300,23 +301,27 @@ mod tests {
     #[test]
     fn test_multiple_subscriptions() {
         let mut router: Router<TestPacket> = Router::new();
-        
+
         let client1 = Rc::new(RefCell::new(Client::new()));
         let client2 = Rc::new(RefCell::new(Client::new()));
-        
+
         router.register_client(Rc::downgrade(&client1));
         router.register_client(Rc::downgrade(&client2));
-        
+
         // Client 2 subscribes to multiple topics
         client2.borrow_mut().subscribe("topic1".to_string());
         client2.borrow_mut().subscribe("topic2".to_string());
-        
+
         // Send packets to both topics
-        client1.borrow_mut().send_packet(TestPacket::new("topic1".to_string(), "msg1".to_string()));
-        client1.borrow_mut().send_packet(TestPacket::new("topic2".to_string(), "msg2".to_string()));
-        
+        client1
+            .borrow_mut()
+            .send_packet(TestPacket::new("topic1".to_string(), "msg1".to_string()));
+        client1
+            .borrow_mut()
+            .send_packet(TestPacket::new("topic2".to_string(), "msg2".to_string()));
+
         router.poll();
-        
+
         // Client 2 should receive both packets
         assert_eq!(client2.borrow().packet_count(), 2);
         assert!(!client1.borrow().has_packets());
@@ -325,19 +330,19 @@ mod tests {
     #[test]
     fn test_no_subscribers() {
         let mut router: Router<TestPacket> = Router::new();
-        
+
         let client1 = Rc::new(RefCell::new(Client::new()));
         let client2 = Rc::new(RefCell::new(Client::new()));
-        
+
         router.register_client(Rc::downgrade(&client1));
         router.register_client(Rc::downgrade(&client2));
-        
+
         // Send packet to topic with no subscribers
         let packet = TestPacket::new("nonexistent_topic".to_string(), "lost message".to_string());
         client1.borrow_mut().send_packet(packet);
-        
+
         router.poll();
-        
+
         // No client should receive the packet
         assert!(!client1.borrow().has_packets());
         assert!(!client2.borrow().has_packets());
@@ -346,7 +351,7 @@ mod tests {
     #[test]
     fn test_dead_client_cleanup() {
         let mut router: Router<TestPacket> = Router::new();
-        
+
         let client1 = Rc::new(RefCell::new(Client::new()));
         {
             let client2 = Rc::new(RefCell::new(Client::new()));
@@ -354,7 +359,7 @@ mod tests {
             router.register_client(Rc::downgrade(&client2));
             assert_eq!(router.clients_by_address.len(), 2);
         } // client2 goes out of scope
-        
+
         // After polling, dead client should be cleaned up
         router.poll();
         assert_eq!(router.clients_by_address.len(), 1);
@@ -363,16 +368,16 @@ mod tests {
     #[test]
     fn test_invalid_address_routing() {
         let mut router: Router<TestPacket> = Router::new();
-        
+
         let client1 = Rc::new(RefCell::new(Client::new()));
         router.register_client(Rc::downgrade(&client1));
-        
+
         // Send packet to non-existent address
         let packet = TestPacket::new("test".to_string(), "lost".to_string()).with_to(999);
         client1.borrow_mut().send_packet(packet);
-        
+
         router.poll();
-        
+
         // No client should receive the packet
         assert!(!client1.borrow().has_packets());
     }
@@ -380,22 +385,28 @@ mod tests {
     #[test]
     fn test_multiple_packets_same_poll() {
         let mut router: Router<TestPacket> = Router::new();
-        
+
         let client1 = Rc::new(RefCell::new(Client::new()));
         let client2 = Rc::new(RefCell::new(Client::new()));
-        
+
         router.register_client(Rc::downgrade(&client1));
         router.register_client(Rc::downgrade(&client2));
-        
+
         client2.borrow_mut().subscribe("test".to_string());
-        
+
         // Send multiple packets in one poll cycle
-        client1.borrow_mut().send_packet(TestPacket::new("test".to_string(), "msg1".to_string()));
-        client1.borrow_mut().send_packet(TestPacket::new("test".to_string(), "msg2".to_string()));
-        client1.borrow_mut().send_packet(TestPacket::new("test".to_string(), "msg3".to_string()));
-        
+        client1
+            .borrow_mut()
+            .send_packet(TestPacket::new("test".to_string(), "msg1".to_string()));
+        client1
+            .borrow_mut()
+            .send_packet(TestPacket::new("test".to_string(), "msg2".to_string()));
+        client1
+            .borrow_mut()
+            .send_packet(TestPacket::new("test".to_string(), "msg3".to_string()));
+
         router.poll();
-        
+
         // Client 2 should receive all packets
         assert_eq!(client2.borrow().packet_count(), 3);
     }

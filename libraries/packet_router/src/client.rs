@@ -1,6 +1,5 @@
-use std::rc::Rc;
 use packet_trait::PacketTrait;
-
+use std::rc::Rc;
 
 pub struct Client<T: PacketTrait> {
     pub client_to_router: Vec<T>,
@@ -17,7 +16,6 @@ impl<T: PacketTrait> Default for Client<T> {
         }
     }
 }
-
 
 impl<T: PacketTrait> Client<T> {
     pub fn fetch_client_to_router(&mut self) -> Vec<T> {
