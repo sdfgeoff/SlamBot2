@@ -2,29 +2,14 @@ use std::cell::RefCell;
 use std::rc::Weak;
 use std::{collections::HashMap, rc::Rc};
 
-pub trait PacketTrait {
-    fn get_to(&self) -> Option<u16>;
-    fn get_topic(&self) -> &str;
-    fn set_from(&mut self, from: u16);
-}
+mod client;
+mod packet;
 
-pub struct Client<T: PacketTrait> {
-    outgoing_queue: Vec<T>,
-    incoming_queue: Vec<Rc<T>>,
-    subscriptions: Vec<String>,
-}
+pub use packet::PacketTrait;
+pub use client::Client;
 
-impl<T: PacketTrait> Client<T> {
-    fn fetch_outgoing_queue(&mut self) -> Vec<T> {
-        self.outgoing_queue.drain(..).collect()
-    }
-    fn write_incoming_queue(&mut self, packets: Vec<Rc<T>>) {
-        self.incoming_queue.extend(packets);
-    }
-    fn get_subscriptions(&self) -> &Vec<String> {
-        &self.subscriptions
-    }
-}
+
+
 
 pub struct Router<T: PacketTrait> {
     clients_by_address: HashMap<u16, Weak<RefCell<Client<T>>>>,
@@ -76,7 +61,7 @@ impl<T: PacketTrait> Router<T> {
         // Grab all packets from all clients
         let mut all_outgoing_packets: Vec<Rc<T>> = Vec::new();
         for (address, client) in clients_by_address.iter() {
-            let client_outgoing_packets = client.borrow_mut().fetch_outgoing_queue();
+            let client_outgoing_packets = client.borrow_mut().fetch_client_to_router();
             for mut packet in client_outgoing_packets.into_iter() {
                 packet.set_from(*address);
                 all_outgoing_packets.push(Rc::new(packet));
@@ -114,7 +99,7 @@ impl<T: PacketTrait> Router<T> {
         // Send packets to clients
         for (address, packets) in packets_for_addresses.into_iter() {
             if let Some(client) = clients_by_address.get(&address) {
-                client.borrow_mut().write_incoming_queue(packets);
+                client.borrow_mut().write_router_to_client(packets);
             }
         }
     }
@@ -167,8 +152,8 @@ mod tests {
     impl<T: PacketTrait> Client<T> {
         fn new() -> Self {
             Client {
-                outgoing_queue: Vec::new(),
-                incoming_queue: Vec::new(),
+                client_to_router: Vec::new(),
+                router_to_client: Vec::new(),
                 subscriptions: Vec::new(),
             }
         }
@@ -178,23 +163,23 @@ mod tests {
         }
 
         fn send_packet(&mut self, packet: T) {
-            self.outgoing_queue.push(packet);
+            self.client_to_router.push(packet);
         }
 
         fn receive_packet(&mut self) -> Option<Rc<T>> {
-            if self.incoming_queue.is_empty() {
+            if self.router_to_client.is_empty() {
                 None
             } else {
-                Some(self.incoming_queue.remove(0))
+                Some(self.router_to_client.remove(0))
             }
         }
 
         fn has_packets(&self) -> bool {
-            !self.incoming_queue.is_empty()
+            !self.router_to_client.is_empty()
         }
 
         fn packet_count(&self) -> usize {
-            self.incoming_queue.len()
+            self.router_to_client.len()
         }
     }
 

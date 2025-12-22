@@ -23,7 +23,7 @@ use serde::Serialize;
 struct Message {
     id: u32,            // Unique identifier for the message
     topic: Vec<u8, 10>, // Topic of the message
-    data: MessageData,  // The actual message data
+    data: u64,  // The actual message data
     time: u64,          // Timestamp of when the message was created, in microseconds since epoch
     seq: u8,            // Sequence number, increments with each message on this particular topic
     from: u16,          // Address of who the message is from
@@ -59,10 +59,7 @@ fn main() -> ! {
     let mut message = Message {
         id: 1,
         topic: Vec::from_slice(b"auth").unwrap(),
-        data: MessageData::Command(CommandMessage {
-            uri: Vec::from_slice(b"/login").unwrap(),
-            command: Vec::from_slice(b"request").unwrap(),
-        }),
+        data: 123456789,
         time: 0,
         seq: 0,
         from: 0,

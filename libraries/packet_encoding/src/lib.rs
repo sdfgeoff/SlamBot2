@@ -4,6 +4,7 @@ use cobs::{CobsEncoder, decode_in_place};
 use crc16::{ARC, State};
 use serde::{Deserialize, Serialize};
 use serde_cbor::{Serializer, de::from_mut_slice, ser::SliceWrite};
+use heapless::Vec;
 
 #[derive(Debug)]
 pub enum PacketEncodeErr {
@@ -74,3 +75,44 @@ pub fn decode_packet<T: for<'a> Deserialize<'a>>(data: &mut [u8]) -> Result<T, P
     let message: T = from_mut_slice(payload).map_err(PacketDecodeErr::SerdeError)?;
     Ok(message)
 }
+
+
+
+pub struct PacketFinder {
+    buffer: Vec<u8, 512>,
+    max_buffer_size: usize,
+}
+
+impl PacketFinder {
+    pub fn new() -> Self {
+        PacketFinder {
+            buffer: Vec::new(),
+            max_buffer_size: 512,
+        }
+    }
+
+    pub fn push_byte(&mut self, byte: u8) -> Option<Vec<u8, 512>> {
+        if self.buffer.len() < self.max_buffer_size {
+            if byte == 0x00 {
+                if self.buffer.len() > 0 {
+                    // Found a packet
+                    let packet = Vec::<u8, 512>::from_slice(&self.buffer[1..]).unwrap();
+                    self.buffer.clear();
+                    self.buffer.push(byte).unwrap();
+                    return Some(packet);
+                } else {
+                    // Starting a packet
+                    self.buffer.clear();
+                    self.buffer.push(byte).unwrap();
+                }
+            } else if self.buffer.len() > 0 {
+                self.buffer.push(byte).unwrap();
+            }
+        } else {
+            // Buffer hit capacity, reset
+            self.buffer.clear();
+        }
+        None
+    }
+}
+

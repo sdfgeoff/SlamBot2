@@ -1,4 +1,4 @@
-use packet_encoding::{PacketDecodeErr, PacketEncodeErr, decode_packet, encode_packet};
+use packet_encoding::{PacketDecodeErr, PacketEncodeErr, decode_packet, encode_packet, PacketFinder};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -167,4 +167,123 @@ fn test_enum_structs() {
 
     let decoded_message: MessageEnum = decode_packet(&mut encode_buffer[..encoded_size]).unwrap();
     assert_eq!(message, decoded_message);
+}
+
+// PacketFinder tests
+#[test]
+fn test_packet_finder_single_packet() {
+    let mut finder = PacketFinder::new();
+    
+    // Push a packet: [0x00, 0x01, 0x02, 0x03, 0x00]
+    assert!(finder.push_byte(0x00).is_none()); // Start packet delimiter
+    assert!(finder.push_byte(0x01).is_none()); // Packet data
+    assert!(finder.push_byte(0x02).is_none()); // Packet data
+    assert!(finder.push_byte(0x03).is_none()); // Packet data
+    
+    // End packet delimiter should return the complete packet
+    let packet = finder.push_byte(0x00).expect("Should return a packet");
+    assert_eq!(packet.as_slice(), &[0x01, 0x02, 0x03]);
+}
+
+#[test]
+fn test_packet_finder_multiple_packets() {
+    let mut finder = PacketFinder::new();
+    
+    // First packet: [0x00, 0xAA, 0x00]
+    assert!(finder.push_byte(0x00).is_none());
+    assert!(finder.push_byte(0xAA).is_none());
+    let packet1 = finder.push_byte(0x00).expect("Should return first packet");
+    assert_eq!(packet1.as_slice(), &[0xAA]);
+    
+    // Second packet: [0x00, 0xBB, 0xCC, 0x00]
+    let gap = finder.push_byte(0x00).expect("Gap");
+    assert_eq!(gap.as_slice(), &[]);
+    assert!(finder.push_byte(0xBB).is_none());
+    assert!(finder.push_byte(0xCC).is_none());
+    let packet2 = finder.push_byte(0x00).expect("Should return second packet");
+    assert_eq!(packet2.as_slice(), &[0xBB, 0xCC]);
+}
+
+#[test]
+fn test_packet_finder_empty_packet() {
+    let mut finder = PacketFinder::new();
+    
+    // Two consecutive delimiters should produce a packet with just the delimiter
+    assert!(finder.push_byte(0x00).is_none()); // Start first packet
+    let packet = finder.push_byte(0x00).expect("Should return packet");
+    assert_eq!(packet.as_slice(), &[]);
+}
+
+#[test]
+fn test_packet_finder_no_start_delimiter() {
+    let mut finder = PacketFinder::new();
+    
+    // Push data without starting with 0x00 - should be ignored
+    assert!(finder.push_byte(0x01).is_none());
+    assert!(finder.push_byte(0x02).is_none());
+    assert!(finder.push_byte(0x03).is_none());
+    
+    // Now start a proper packet
+    assert!(finder.push_byte(0x00).is_none());
+    assert!(finder.push_byte(0xAA).is_none());
+    let packet = finder.push_byte(0x00).expect("Should return packet");
+    assert_eq!(packet.as_slice(), &[0xAA]);
+}
+
+#[test]
+fn test_packet_finder_buffer_overflow() {
+    let mut finder = PacketFinder::new();
+    
+    // Start a packet
+    assert!(finder.push_byte(0x00).is_none());
+    
+    // Fill buffer to near capacity (511 more bytes since we already have one 0x00)
+    for i in 1..512 {
+        let result = finder.push_byte(0x02);
+        assert!(result.is_none(), "Should not return packet until buffer full or reset");
+    }
+    
+    // This should trigger buffer overflow and reset
+    assert!(finder.push_byte(0xFF).is_none());
+    
+    // After buffer overflow, it should reset and we can start a new packet
+    assert!(finder.push_byte(0x00).is_none());
+    assert!(finder.push_byte(0xAA).is_none());
+    let packet = finder.push_byte(0x00).expect("Should return packet after reset");
+    assert_eq!(packet.as_slice(), &[0xAA]);
+}
+
+#[test]
+fn test_packet_finder_partial_packet_then_reset() {
+    let mut finder = PacketFinder::new();
+    
+    // Start a packet but don't complete it
+    assert!(finder.push_byte(0x00).is_none());
+    assert!(finder.push_byte(0x01).is_none());
+    assert!(finder.push_byte(0x02).is_none());
+    
+    // Start a new packet (this should return the current buffer and start fresh)
+    let packet = finder.push_byte(0x00).expect("Should return partial packet");
+    assert_eq!(packet.as_slice(), &[0x01, 0x02]);
+    
+    // Now we should be able to continue with a new packet
+    assert!(finder.push_byte(0xBB).is_none());
+    let packet2 = finder.push_byte(0x00).expect("Should return new packet");
+    assert_eq!(packet2.as_slice(), &[0xBB]);
+}
+
+#[test]
+fn test_packet_finder_consecutive_delimiters() {
+    let mut finder = PacketFinder::new();
+    
+    // Multiple consecutive delimiters
+    assert!(finder.push_byte(0x00).is_none()); // Start first packet
+    let packet1 = finder.push_byte(0x00).expect("Should return packet with single delimiter");
+    assert_eq!(packet1.as_slice(), &[]);
+    
+    let packet2 = finder.push_byte(0x00).expect("Should return another packet with single delimiter");
+    assert_eq!(packet2.as_slice(), &[]);
+    
+    let packet3 = finder.push_byte(0x00).expect("Should return a third packet with single delimiter");
+    assert_eq!(packet3.as_slice(), &[]);
 }
