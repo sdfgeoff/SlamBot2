@@ -1,6 +1,5 @@
 use std::rc::Rc;
-
-use super::packet::PacketTrait;
+use packet_trait::PacketTrait;
 
 
 pub struct Client<T: PacketTrait> {

@@ -83,6 +83,14 @@ pub struct PacketFinder {
     max_buffer_size: usize,
 }
 
+
+impl Default for PacketFinder {
+    fn default() -> Self {
+        PacketFinder::new()
+    }
+}
+
+
 impl PacketFinder {
     pub fn new() -> Self {
         PacketFinder {
@@ -94,7 +102,7 @@ impl PacketFinder {
     pub fn push_byte(&mut self, byte: u8) -> Option<Vec<u8, 512>> {
         if self.buffer.len() < self.max_buffer_size {
             if byte == 0x00 {
-                if self.buffer.len() > 0 {
+                if !self.buffer.is_empty() {
                     // Found a packet
                     let packet = Vec::<u8, 512>::from_slice(&self.buffer[1..]).unwrap();
                     self.buffer.clear();
@@ -105,7 +113,7 @@ impl PacketFinder {
                     self.buffer.clear();
                     self.buffer.push(byte).unwrap();
                 }
-            } else if self.buffer.len() > 0 {
+            } else if !self.buffer.is_empty() {
                 self.buffer.push(byte).unwrap();
             }
         } else {

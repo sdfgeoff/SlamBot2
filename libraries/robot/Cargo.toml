@@ -1,0 +1,13 @@
+[package]
+name = "robot"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+packet_encoding = { path = "../packet_encoding" }
+packet_router = { path = "../packet_router" }
+packet_trait = { path = "../packet_trait" }
+topics = { path = "../topics" }
+
+serde = "1.0.228"
+serial = "0.4.0"

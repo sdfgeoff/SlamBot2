@@ -2,5 +2,5 @@
 resolver = "3"
 
 members = [
-    "packet_encoding", "packet_router", "robot",
+    "packet_encoding", "packet_router", "packet_trait", "robot", "topics",
 ]

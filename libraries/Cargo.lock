@@ -46,6 +46,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2af2455f757db2b292a9b1768c4b70186d443bcb3b316252d6b540aec1cd89ed"
 dependencies = [
  "hash32",
+ "serde_core",
  "stable_deref_trait",
 ]
 
@@ -78,6 +79,13 @@ dependencies = [
 [[package]]
 name = "packet_router"
 version = "0.1.0"
+dependencies = [
+ "packet_trait",
+]
+
+[[package]]
+name = "packet_trait"
+version = "0.1.0"
 
 [[package]]
 name = "proc-macro2"
@@ -103,8 +111,10 @@ version = "0.1.0"
 dependencies = [
  "packet_encoding",
  "packet_router",
+ "packet_trait",
  "serde",
  "serial",
+ "topics",
 ]
 
 [[package]]
@@ -233,6 +243,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "topics"
+version = "0.1.0"
+dependencies = [
+ "heapless",
+ "packet_trait",
+ "serde",
 ]
 
 [[package]]

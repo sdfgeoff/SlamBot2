@@ -1,11 +1,10 @@
 use std::cell::RefCell;
 use std::rc::Weak;
 use std::{collections::HashMap, rc::Rc};
+use packet_trait::PacketTrait;
 
 mod client;
-mod packet;
 
-pub use packet::PacketTrait;
 pub use client::Client;
 
 
