@@ -18,6 +18,13 @@ impl<T: PacketTrait> Default for Client<T> {
 }
 
 impl<T: PacketTrait> Client<T> {
+    pub fn send(&mut self, packet: T) {
+        self.client_to_router.push(packet);
+    }
+    pub fn fetch_all(&mut self) -> Vec<Rc<T>> {
+        self.router_to_client.drain(..).collect()
+    }
+
     pub fn fetch_client_to_router(&mut self) -> Vec<T> {
         self.client_to_router.drain(..).collect()
     }

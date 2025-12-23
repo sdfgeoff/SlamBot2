@@ -33,10 +33,7 @@ impl<T: PacketTrait + DeserializeOwned + Serialize, V: SerialPort> SerialClient<
                 let mut packet_data = packet.to_vec();
                 match decode_packet::<T>(&mut packet_data) {
                     Ok(packet) => {
-                        self.client
-                            .borrow_mut()
-                            .client_to_router
-                            .push(packet);
+                        self.client.borrow_mut().client_to_router.push(packet);
                     }
                     Err(e) => {
                         println!("Failed to decode packet: {:?} {:X?}", e, packet_data);

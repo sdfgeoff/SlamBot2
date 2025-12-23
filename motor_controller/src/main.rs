@@ -6,6 +6,8 @@
     holding buffers for the duration of a data transfer."
 )]
 
+use core::str::FromStr;
+
 use esp_hal::time::{Duration, Instant};
 // use esp_backtrace as _;
 use esp_hal::{Blocking, main};
@@ -17,13 +19,12 @@ use packet_encoding::{PacketEncodeErr, encode_packet};
 esp_bootloader_esp_idf::esp_app_desc!();
 
 use heapless::String;
-use serde::Serialize;
 
 use topics::*;
 
 fn send_message(
     usb: &mut UsbSerialJtag<Blocking>,
-    message: &impl Serialize,
+    message: &PacketFormat,
 ) -> Result<(), PacketEncodeErr> {
     let mut encode_buffer = [0u8; 600];
     encode_buffer[0] = 0; // COBS initial byte
@@ -43,10 +44,26 @@ fn main() -> ! {
 
     let mut lastWriteTime = Instant::now();
 
+    // Send boot message
+    send_message(
+        &mut usb_serial,
+        &PacketFormat {
+            to: None,
+            from: None,
+            data: PacketData::LogMessage(LogMessage {
+                level: LogLevel::Info,
+                event: String::from_str("mc_boot").unwrap(),
+                json: None,
+            }),
+            time: Instant::now().duration_since_epoch().as_micros(),
+            id: 0,
+        },
+    )
+    .ok();
+
     let mut message = PacketFormat {
         to: None,
         from: None,
-        topic: String::try_from("ClockRequest").unwrap(),
         data: PacketData::ClockRequest(ClockRequest { request_time: 0 }),
         time: 0,
         id: 0,

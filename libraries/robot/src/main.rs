@@ -1,13 +1,15 @@
-use serial::prelude::*;
-use std::rc::Rc;
-use std::cell::RefCell;
 use packet_router::Client;
+use serial::prelude::*;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 use std::time::Duration;
-mod serial_client;
-use serial_client::SerialClient;
-use topics::PacketFormat;
+mod nodes;
+use nodes::clock::Clock;
+use nodes::serial_client::SerialClient;
 
+use packet_trait::PacketTrait;
+use topics::PacketFormat;
 
 fn main() {
     println!("Hello, world!");
@@ -23,19 +25,32 @@ fn main() {
 
     let mut serial_client = SerialClient::<PacketFormat, _>::new(serialport);
     let log_client = Rc::new(RefCell::new(Client::<PacketFormat>::default()));
-    log_client.borrow_mut().subscriptions.push("all".to_string());
+    log_client
+        .borrow_mut()
+        .subscriptions
+        .push("all".to_string());
 
     router.register_client(Rc::downgrade(&serial_client.client));
     router.register_client(Rc::downgrade(&log_client));
 
+    let mut clock_node = Clock::new();
+    router.register_client(Rc::downgrade(&clock_node.client));
+
     loop {
         serial_client.read();
+        clock_node.tick();
         router.poll();
-        serial_client.write();
 
-        let log_packets: Vec<Rc<PacketFormat>> = log_client.borrow_mut().router_to_client.drain(..).collect();
+        let log_packets: Vec<Rc<PacketFormat>> =
+            log_client.borrow_mut().router_to_client.drain(..).collect();
         for packet in log_packets {
-            println!("Log Packet: Topic: {}, ID: {}, Time: {}", packet.topic, packet.id, packet.time);
+            println!(
+                "Log Packet: Topic: {}, ID: {}, Time: {}",
+                packet.get_topic(),
+                packet.id,
+                packet.time
+            );
         }
+        serial_client.write();
     }
 }

@@ -64,14 +64,18 @@ impl<T: PacketTrait> Router<T> {
             }
         }
 
-        let subscribers_to_all_topic: Vec<u16> = address_by_topic
-            .get("all")
-            .cloned()
-            .unwrap_or_default();
+        let subscribers_to_all_topic: Vec<u16> =
+            address_by_topic.get("all").cloned().unwrap_or_default();
 
         // Figure out where packets neeed to go based on 'to' address or topic subscription
         let mut packets_for_addresses: HashMap<u16, Vec<Rc<T>>> = HashMap::new();
         for packet in all_outgoing_packets.iter() {
+            subscribers_to_all_topic.iter().for_each(|address| {
+                packets_for_addresses
+                    .entry(*address)
+                    .or_default()
+                    .push(packet.clone());
+            });
             if let Some(to_address) = packet.get_to() {
                 packets_for_addresses
                     .entry(to_address)
@@ -79,12 +83,6 @@ impl<T: PacketTrait> Router<T> {
                     .push(packet.clone());
             } else {
                 let topic = packet.get_topic();
-                subscribers_to_all_topic.iter().for_each(|address| {
-                    packets_for_addresses
-                        .entry(*address)
-                        .or_default()
-                        .push(packet.clone());
-                });
                 if let Some(topic_addresses) = address_by_topic.get(topic) {
                     for address in topic_addresses {
                         packets_for_addresses
