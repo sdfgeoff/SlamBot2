@@ -1,8 +1,7 @@
+use packet_router::Client;
 use std::cell::RefCell;
 use std::rc::Rc;
-use packet_router::Client;
-use packet_trait::PacketTrait;
-use topics::{PacketFormat, LogLevel};
+use topics::{LogLevel, PacketFormat};
 
 pub struct Log {
     pub client: Rc<RefCell<Client<PacketFormat>>>,
@@ -19,15 +18,16 @@ impl Log {
                 level: LogLevel::Info,
                 event: "".try_into().expect("Arge"),
                 json: None,
-            }).topic()
+            })
+            .topic()
             .to_string(),
         );
         Log { client }
     }
 
-    pub fn step(&mut self) -> () {
+    pub fn step(&mut self) {
         let log_packets = self.client.borrow_mut().fetch_all();
-        for packet in log_packets{
+        for packet in log_packets {
             println!("{}", serde_json::to_string(&(*packet)).unwrap());
         }
     }

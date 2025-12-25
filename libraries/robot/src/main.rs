@@ -3,14 +3,11 @@ use std::rc::Rc;
 
 use std::time::Duration;
 mod nodes;
-use nodes::serial_client::SerialClient;
 use nodes::clock::Clock;
 use nodes::log::Log;
+use nodes::serial_client::SerialClient;
 
-use topics::{PacketFormat};
-
-
-
+use topics::PacketFormat;
 
 fn main() {
     println!("Hello, world!");
@@ -28,7 +25,6 @@ fn main() {
     let mut log_client = Log::new(true);
     router.register_client(Rc::downgrade(&serial_client.client));
     router.register_client(Rc::downgrade(&log_client.client));
-
 
     let mut clock_node = Clock::new();
     router.register_client(Rc::downgrade(&clock_node.client));

@@ -27,21 +27,18 @@ impl Clock {
     pub fn tick(&mut self) {
         let incoming_packets = self.client.borrow_mut().fetch_all();
         for packet in incoming_packets {
-            match &packet.data {
-                PacketData::ClockRequest(req) => {
-                    let response = PacketFormat {
-                        to: packet.from,
-                        from: None,
-                        data: PacketData::ClockResponse(topics::ClockResponse {
-                            request_time: req.request_time,
-                            recieved_time: get_current_time(),
-                        }),
-                        time: get_current_time(),
-                        id: packet.id,
-                    };
-                    self.client.borrow_mut().send(response);
-                }
-                _ => {}
+            if let PacketData::ClockRequest(req) = &packet.data {
+                let response = PacketFormat {
+                    to: packet.from,
+                    from: None,
+                    data: PacketData::ClockResponse(topics::ClockResponse {
+                        request_time: req.request_time,
+                        recieved_time: get_current_time(),
+                    }),
+                    time: get_current_time(),
+                    id: packet.id,
+                };
+                self.client.borrow_mut().send(response);
             }
         }
     }

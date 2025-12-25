@@ -82,7 +82,7 @@ fn main() -> ! {
             led.toggle();
         }
 
-        while let Some(byte) = usb_serial.read_byte().ok() {
+        while let Ok(byte) = usb_serial.read_byte() {
             if let Some(mut packet) = packet_finder.push_byte(byte)
                 && !packet.is_empty()
             {
