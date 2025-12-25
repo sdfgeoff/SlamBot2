@@ -44,6 +44,8 @@ fn main() -> ! {
 
     let mut lastWriteTime = Instant::now();
 
+    let mut packet_finder = packet_encoding::PacketFinder::new();
+
     // Send boot message
     send_message(
         &mut usb_serial,
@@ -80,12 +82,48 @@ fn main() -> ! {
             led.toggle();
         }
 
-        match usb_serial.read_byte() {
-            Ok(byte) => {
-                usb_serial.write(&[byte]).unwrap();
-                usb_serial.write(b"!").unwrap();
+        while let Some(byte) = usb_serial.read_byte().ok() {
+            if let Some(mut packet) = packet_finder.push_byte(byte)
+                && !packet.is_empty()
+            {
+                match packet_encoding::decode_packet::<PacketFormat>(&mut packet) {
+                    Ok(packet) => {
+                        send_message(
+                            &mut usb_serial,
+                            &PacketFormat {
+                                to: None,
+                                from: None,
+                                data: PacketData::LogMessage(LogMessage {
+                                    level: LogLevel::Info,
+                                    event: String::from_str("got_packet").unwrap(),
+                                    json: None,
+                                }),
+                                time: Instant::now().duration_since_epoch().as_micros(),
+                                id: 0,
+                            },
+                        )
+                        .ok();
+                    }
+                    Err(e) => {
+                        // Handle decode error
+                        send_message(
+                            &mut usb_serial,
+                            &PacketFormat {
+                                to: None,
+                                from: None,
+                                data: PacketData::LogMessage(LogMessage {
+                                    level: LogLevel::Info,
+                                    event: String::from_str("packet_err").unwrap(),
+                                    json: None,
+                                }),
+                                time: Instant::now().duration_since_epoch().as_micros(),
+                                id: 0,
+                            },
+                        )
+                        .ok();
+                    }
+                }
             }
-            Err(_) => {}
         }
     }
 }

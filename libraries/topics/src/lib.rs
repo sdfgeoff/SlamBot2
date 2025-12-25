@@ -24,7 +24,7 @@ pub enum LogLevel {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct LogMessage {
     pub level: LogLevel,
-    pub event: String<16>,
+    pub event: String<32>,
     pub json: Option<String<256>>,
 }
 

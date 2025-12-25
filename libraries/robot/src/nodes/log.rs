@@ -1,0 +1,44 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+use packet_router::Client;
+use packet_trait::PacketTrait;
+use topics::{PacketFormat, LogLevel};
+
+pub struct Log {
+    pub client: Rc<RefCell<Client<PacketFormat>>>,
+}
+
+impl Log {
+    pub fn new(log_all: bool) -> Log {
+        let client = Rc::new(RefCell::new(Client::<PacketFormat>::default()));
+        if log_all {
+            client.borrow_mut().subscriptions.push("all".to_string());
+        }
+        client.borrow_mut().subscriptions.push(
+            topics::PacketData::LogMessage(topics::LogMessage {
+                level: LogLevel::Info,
+                event: "".try_into().expect("Arge"),
+                json: None,
+            }).topic()
+            .to_string(),
+        );
+        Log { client }
+    }
+
+    pub fn step(&mut self) -> () {
+        let log_packets = self.client.borrow_mut().fetch_all();
+        for packet in log_packets{
+            match &packet.data {
+                topics::PacketData::LogMessage(log_msg) => {
+                    println!(
+                        "Log Message - Level: {:?}, Event: {}, JSON: {:?}, ID: {}, Time: {}",
+                        log_msg.level, log_msg.event, log_msg.json, packet.id, packet.time
+                    );
+                }
+                _ => {
+                    println!("Log Packet: Topic: {}, ID: {}, Time: {}", (*packet).get_topic(), packet.id, packet.time);
+                }
+            }
+        }
+    }
+}

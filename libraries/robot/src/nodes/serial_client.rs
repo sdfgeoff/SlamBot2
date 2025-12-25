@@ -44,11 +44,11 @@ impl<T: PacketTrait + DeserializeOwned + Serialize, V: SerialPort> SerialClient<
     }
 
     pub fn write(&mut self) {
-        let packets = self.client.borrow_mut().fetch_client_to_router();
+        let packets = self.client.borrow_mut().fetch_all();
         for packet in packets {
             let mut encode_buffer: [u8; 512] = [0; 512];
             encode_buffer[0] = 0; // COBS initial byte
-            match encode_packet(&packet, &mut encode_buffer[1..]) {
+            match encode_packet(&(*packet), &mut encode_buffer[1..]) {
                 Ok(encoded_size) => {
                     encode_buffer[encoded_size + 1] = 0x00; // COBS final byte
                     self.serialport
