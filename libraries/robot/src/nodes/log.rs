@@ -28,17 +28,7 @@ impl Log {
     pub fn step(&mut self) -> () {
         let log_packets = self.client.borrow_mut().fetch_all();
         for packet in log_packets{
-            match &packet.data {
-                topics::PacketData::LogMessage(log_msg) => {
-                    println!(
-                        "Log Message - Level: {:?}, Event: {}, JSON: {:?}, ID: {}, Time: {}",
-                        log_msg.level, log_msg.event, log_msg.json, packet.id, packet.time
-                    );
-                }
-                _ => {
-                    println!("Log Packet: Topic: {}, ID: {}, Time: {}", (*packet).get_topic(), packet.id, packet.time);
-                }
-            }
+            println!("{}", serde_json::to_string(&(*packet)).unwrap());
         }
     }
 }
