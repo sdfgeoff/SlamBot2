@@ -51,10 +51,12 @@ impl<T: PacketTrait + DeserializeOwned + Serialize, V: SerialPort> SerialClient<
             match encode_packet(&(*packet), &mut encode_buffer[1..]) {
                 Ok(encoded_size) => {
                     encode_buffer[encoded_size + 1] = 0x00; // COBS final byte
-                    if let Err(e) = self.serialport.write_all(&encode_buffer[..encoded_size + 2]) {
+                    if let Err(e) = self
+                        .serialport
+                        .write_all(&encode_buffer[..encoded_size + 2])
+                    {
                         println!("Failed to write packet: {:?}", e);
                     }
-
                 }
                 Err(e) => {
                     println!("Failed to encode packet: {:?}", e);

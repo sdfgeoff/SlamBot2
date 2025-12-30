@@ -1,7 +1,7 @@
 #![no_std]
 
-use cobs::{CobsEncoder, decode_in_place};
 use cobs::DecodeError;
+use cobs::{CobsEncoder, decode_in_place};
 use crc16::{ARC, State};
 use heapless::Vec;
 use serde::{Deserialize, Serialize};

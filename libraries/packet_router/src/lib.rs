@@ -287,7 +287,6 @@ mod tests {
         assert!(!client1.borrow().has_packets());
         assert!(!client2.borrow().has_packets());
         assert!(client3.borrow().has_packets());
-        
     }
 
     #[test]

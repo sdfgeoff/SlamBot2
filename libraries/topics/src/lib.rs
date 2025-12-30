@@ -59,7 +59,7 @@ impl PacketTrait for PacketFormat {
         self.to
     }
     fn get_topic(&self) -> &str {
-        &self.data.topic()
+        self.data.topic()
     }
     fn set_from(&mut self, from: u16) {
         self.from = Some(from);

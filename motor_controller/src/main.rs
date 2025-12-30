@@ -33,6 +33,8 @@ fn send_message(
     usb: &mut UsbSerialJtag<Blocking>,
     message: &PacketFormat,
 ) -> Result<(), SendError> {
+    const TIMEOUT: Duration = Duration::from_millis(1);
+
     let mut encode_buffer = [0u8; 600];
     encode_buffer[0] = 0; // COBS initial byte
     let encoded_size = encode_packet(message, &mut encode_buffer[1..]).map_err(SendError::EncodeError)?;
@@ -44,19 +46,26 @@ fn send_message(
     // Slice into 64 byte chunks and write each chunk
     let start_time = Instant::now();
     for chunk in encode_sized.chunks(64) {
+        let mut duration = Instant::now() - start_time;
         for byte in chunk {
-            while Instant::now() - start_time < Duration::from_millis(1) {
+            while duration < TIMEOUT {
+                duration = Instant::now() - start_time;
                 match usb.write_byte_nb(*byte) {
                     Ok(_) => break,
                     Err(_) => continue,
                 }
             }
         }
-        while Instant::now() - start_time < Duration::from_millis(1) {
+        while duration < TIMEOUT {
+            duration = Instant::now() - start_time;
             match usb.flush_tx_nb() {
                 Ok(_) => break,
                 Err(_) => continue,
             }
+        }
+
+        if !(duration < TIMEOUT) {
+            return Err(SendError::Timeout);
         }
     }
 
