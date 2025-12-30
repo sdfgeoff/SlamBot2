@@ -6,6 +6,7 @@
     holding buffers for the duration of a data transfer."
 )]
 
+
 use core::str::FromStr;
 
 // use esp_backtrace as _;
@@ -19,7 +20,7 @@ use packet_encoding::{PacketEncodeErr, encode_packet};
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
-use heapless::{String, format};
+use heapless::{String, Vec, format};
 use core::cell::RefCell;
 
 use topics::*;
@@ -51,10 +52,11 @@ fn main() -> ! {
     // Send boot message
     host_connection.send_packet(
         &clock,
-        PacketData::LogMessage(LogMessage {
-            level: LogLevel::Info,
-            event: String::from_str("mc_boot").unwrap(),
-            json: None,
+        PacketData::DiagnosticMsg(DiagnosticMsg {
+            level: DiagnosticStatus::Ok,
+            name: String::from_str("mc_boot").unwrap(),
+            message: String::from_str("").unwrap(),
+            values: Vec::new(),
         }),
         None,
     )

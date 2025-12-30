@@ -1,6 +1,7 @@
 use serial::prelude::*;
 use std::rc::Rc;
 
+use core::str::FromStr;
 use std::time::Duration;
 mod nodes;
 use nodes::clock::{Clock, get_current_time};
@@ -39,7 +40,38 @@ fn main() {
         serial_client.write();
 
         if serial_stats_last_sent.elapsed().as_secs() >= 5 {
-            let stats = serde_json::to_string(&serial_client.stats).unwrap();
+            let mut values = heapless::Vec::new();
+            // serde_json::to_string(&serial_client.stats).unwrap();
+            values.push(topics::DiagnosticKeyValue {
+                key: String::from_str("decode_errors").unwrap(),
+                value: heapless::format!("{}", serial_client.stats.decode_error_count).unwrap(),
+            }).ok();
+            values.push(topics::DiagnosticKeyValue {
+                key: String::from_str("tx_packets").unwrap(),
+                value: heapless::format!("{}", serial_client.stats.tx_packets).unwrap(),
+            }).ok();
+            values.push(topics::DiagnosticKeyValue {
+                key: String::from_str("tx_bytes").unwrap(),
+                value: heapless::format!("{}", serial_client.stats.tx_bytes).unwrap(),
+            }).ok();
+            values.push(topics::DiagnosticKeyValue {
+                key: String::from_str("rx_packets").unwrap(),
+                value: heapless::format!("{}", serial_client.stats.rx_packets).unwrap(),
+            }).ok();
+            values.push(topics::DiagnosticKeyValue {
+                key: String::from_str("rx_bytes").unwrap(),
+                value: heapless::format!("{}", serial_client.stats.rx_bytes).unwrap(),
+            }).ok();
+            values.push(topics::DiagnosticKeyValue {
+                key: String::from_str("encode_errors").unwrap(),
+                value: heapless::format!("{}", serial_client.stats.encode_error_count).unwrap(),
+            }).ok();
+            values.push(topics::DiagnosticKeyValue {
+                key: String::from_str("write_errors").unwrap(),
+                value: heapless::format!("{}", serial_client.stats.write_error_count).unwrap(),
+            }).ok();
+
+
             serial_client
                 .client
                 .borrow_mut()
@@ -47,12 +79,11 @@ fn main() {
                 .push(PacketFormat {
                     to: None,
                     from: None,
-                    data: topics::PacketData::LogMessage(topics::LogMessage {
-                        level: topics::LogLevel::Info,
-                        event: String::try_from("serial_stats").unwrap(),
-                        json: Some(
-                            String::<256>::try_from(stats.as_str()).unwrap(),
-                        ),
+                    data: topics::PacketData::DiagnosticMsg(topics::DiagnosticMsg {
+                        level: topics::DiagnosticStatus::Ok,
+                        name: String::try_from("serial_stats").unwrap(),
+                        message: String::from_str("").unwrap(),
+                        values,
                     }),
                     time: get_current_time(),
                     id: 0,

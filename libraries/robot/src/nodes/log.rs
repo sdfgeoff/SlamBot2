@@ -1,7 +1,8 @@
 use packet_router::Client;
 use std::cell::RefCell;
 use std::rc::Rc;
-use topics::{LogLevel, PacketFormat};
+use topics::{DiagnosticStatus, PacketFormat};
+use heapless::{Vec};
 
 pub struct Log {
     pub client: Rc<RefCell<Client<PacketFormat>>>,
@@ -14,10 +15,11 @@ impl Log {
             client.borrow_mut().subscriptions.push("all".to_string());
         } else {
             client.borrow_mut().subscriptions.push(
-                topics::PacketData::LogMessage(topics::LogMessage {
-                    level: LogLevel::Info,
-                    event: "".try_into().expect("Arge"),
-                    json: None,
+                topics::PacketData::DiagnosticMsg(topics::DiagnosticMsg {
+                    level: DiagnosticStatus::Ok,
+                    name: "".try_into().expect("Arge"),
+                    message: "".try_into().expect("Arge"),
+                    values: Vec::new(),
                 })
                 .topic()
                 .to_string(),

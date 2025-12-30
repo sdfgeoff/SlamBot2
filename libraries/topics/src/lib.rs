@@ -3,6 +3,11 @@ use heapless::String;
 use packet_trait::PacketTrait;
 use serde::{Deserialize, Serialize};
 
+
+pub mod ros;
+pub use ros::*;
+
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ClockRequest {
     pub request_time: u64,
@@ -33,14 +38,14 @@ pub struct LogMessage {
 pub enum PacketData {
     ClockRequest(ClockRequest),
     ClockResponse(ClockResponse),
-    LogMessage(LogMessage),
+    DiagnosticMsg(DiagnosticMsg),
 }
 impl PacketData {
     pub fn topic(&self) -> &'static str {
         match self {
             Self::ClockRequest(_) => "clock/request",
             Self::ClockResponse(_) => "clock/response",
-            Self::LogMessage(_) => "log/message",
+            Self::DiagnosticMsg(_) => "diagnostics",
         }
     }
 }

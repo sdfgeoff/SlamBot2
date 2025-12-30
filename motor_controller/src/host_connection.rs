@@ -3,7 +3,7 @@ use esp_hal::{Blocking};
 use esp_hal::usb_serial_jtag::UsbSerialJtag;
 use packet_encoding::{PacketEncodeErr, encode_packet};
 use esp_hal::time::{Instant, Duration};
-use heapless::{String, format};
+use heapless::{String, format, Vec};
 use core::str::FromStr;
 use topics::*;
 use crate::Clock;
@@ -100,15 +100,23 @@ impl<'a> HostConnection<'a> {
                         match packet.data {
                             PacketData::ClockResponse(resp) => {
                                 let round_trip_time = clock.handle_clock_response(&resp);
+
+                                let mut values: Vec<topics::DiagnosticKeyValue, 8> = Vec::new();
+                                values.push(topics::DiagnosticKeyValue {
+                                    key: String::from_str("offset").unwrap(),
+                                    value: format!("{}", &clock.offset.unwrap_or(0)).unwrap(),
+                                }).ok();
+                                values.push(topics::DiagnosticKeyValue {
+                                    key: String::from_str("rtt").unwrap(),
+                                    value: format!("{}", round_trip_time).unwrap(),
+                                }).ok();
                                 self.send_packet(
                                     clock,
-                                    PacketData::LogMessage(LogMessage {
-                                        level: LogLevel::Info,
-                                        event: String::from_str("time_sync").unwrap(),
-                                        json: format!(
-                                            "{{\"offset\": {}, \"rtt\": {}}}",
-                                            clock.offset.unwrap_or(0), round_trip_time
-                                        ).ok(),
+                                    PacketData::DiagnosticMsg(topics::DiagnosticMsg {
+                                        level: DiagnosticStatus::Ok,
+                                        name: String::from_str("time_sync").unwrap(),
+                                        message: String::from_str("").unwrap(),
+                                        values: values,
                                     }),
                                     None,
                                 ).ok();
