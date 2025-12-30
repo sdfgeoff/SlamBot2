@@ -18,21 +18,53 @@ use packet_encoding::{PacketEncodeErr, encode_packet};
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
-use heapless::String;
+use heapless::{String, format};
 
 use topics::*;
+
+
+enum SendError {
+    UsbError,
+    EncodeError(PacketEncodeErr),
+    Timeout
+}
 
 fn send_message(
     usb: &mut UsbSerialJtag<Blocking>,
     message: &PacketFormat,
-) -> Result<(), PacketEncodeErr> {
+) -> Result<(), SendError> {
     let mut encode_buffer = [0u8; 600];
     encode_buffer[0] = 0; // COBS initial byte
-    let encoded_size = encode_packet(message, &mut encode_buffer[1..])?;
+    let encoded_size = encode_packet(message, &mut encode_buffer[1..]).map_err(SendError::EncodeError)?;
     encode_buffer[encoded_size + 1] = 0x00; // COBS final byte
-    usb.write(&encode_buffer[..encoded_size + 2]).unwrap();
+    let encode_sized = &encode_buffer[..encoded_size + 2];
+
+    // usb.write(encode_sized).map_err(|_| SendError::UsbError)?;
+
+    // Slice into 64 byte chunks and write each chunk
+    let start_time = Instant::now();
+    for chunk in encode_sized.chunks(64) {
+        for byte in chunk {
+            while Instant::now() - start_time < Duration::from_millis(1) {
+                match usb.write_byte_nb(*byte) {
+                    Ok(_) => break,
+                    Err(_) => continue,
+                }
+            }
+        }
+        while Instant::now() - start_time < Duration::from_millis(1) {
+            match usb.flush_tx_nb() {
+                Ok(_) => break,
+                Err(_) => continue,
+            }
+        }
+    }
+
+
     Ok(())
 }
+
+
 
 #[main]
 fn main() -> ! {
@@ -71,11 +103,15 @@ fn main() -> ! {
         id: 0,
     };
 
+    let mut packet_errors: u32 = 0;
+    let mut packet_send_errors: u32 = 0;
+    let mut time_offset: Option<u64> = None;
+
     loop {
         let loopStartTime = Instant::now();
         if (loopStartTime - lastWriteTime) > Duration::from_millis(500) {
             message.time = Instant::now().duration_since_epoch().as_micros();
-            send_message(&mut usb_serial, &message).unwrap();
+            send_message(&mut usb_serial, &message).ok();
             message.id = message.id.wrapping_add(1);
 
             lastWriteTime = loopStartTime;
@@ -88,39 +124,45 @@ fn main() -> ! {
             {
                 match packet_encoding::decode_packet::<PacketFormat>(&mut packet) {
                     Ok(packet) => {
-                        send_message(
-                            &mut usb_serial,
-                            &PacketFormat {
-                                to: None,
-                                from: None,
-                                data: PacketData::LogMessage(LogMessage {
-                                    level: LogLevel::Info,
-                                    event: String::from_str("got_packet").unwrap(),
-                                    json: None,
-                                }),
-                                time: Instant::now().duration_since_epoch().as_micros(),
-                                id: 0,
-                            },
-                        )
-                        .ok();
+                        match packet.data {
+                            PacketData::ClockResponse(resp) => {
+                                let current_time = Instant::now().duration_since_epoch().as_micros();
+                                let round_trip_time = current_time - packet.time;
+                                let estimated_offset = ((packet.time + round_trip_time / 2) as i64)
+                                    - (resp.recieved_time as i64);
+
+                                if let Some(offset) = time_offset {
+                                    let new_offset =
+                                        (offset as i64 * 7 + estimated_offset) / 8;
+                                    time_offset = Some(new_offset as u64);
+                                } else {
+                                    time_offset = Some(estimated_offset as u64);
+                                }
+                                send_message(
+                                    &mut usb_serial,
+                                    &PacketFormat {
+                                        to: None,
+                                        from: None,
+                                        data: PacketData::LogMessage(LogMessage {
+                                            level: LogLevel::Info,
+                                            event: String::from_str("time_sync").unwrap(),
+                                            json: format!(
+                                                    "{{\"offset\": {}, \"rtt\": {}}}",
+                                                    estimated_offset, round_trip_time
+                                                ).ok(),
+                                        }),
+                                        time: Instant::now().duration_since_epoch().as_micros(),
+                                        id: 0,
+                                    },
+                                )
+                                .ok();
+
+                            }
+                            _ => {}
+                        }   
                     }
-                    Err(e) => {
-                        // Handle decode error
-                        send_message(
-                            &mut usb_serial,
-                            &PacketFormat {
-                                to: None,
-                                from: None,
-                                data: PacketData::LogMessage(LogMessage {
-                                    level: LogLevel::Info,
-                                    event: String::from_str("packet_err").unwrap(),
-                                    json: None,
-                                }),
-                                time: Instant::now().duration_since_epoch().as_micros(),
-                                id: 0,
-                            },
-                        )
-                        .ok();
+                    Err(_e) => {
+                        packet_errors = packet_errors.wrapping_add(1);
                     }
                 }
             }

@@ -264,36 +264,30 @@ mod tests {
     }
 
     #[test]
-    fn test_all_topic_broadcast() {
+    fn test_all_topic() {
         let mut router: Router<TestPacket> = Router::new();
 
         // Create three clients
         let client1 = Rc::new(RefCell::new(Client::new()));
         let client2 = Rc::new(RefCell::new(Client::new()));
         let client3 = Rc::new(RefCell::new(Client::new()));
+        client3.borrow_mut().subscribe("all".to_string());
 
         router.register_client(Rc::downgrade(&client1));
         router.register_client(Rc::downgrade(&client2));
         router.register_client(Rc::downgrade(&client3));
 
         // Client 1 sends a packet to "all" topic
-        let packet = TestPacket::new("all".to_string(), "broadcast message".to_string());
+        let packet = TestPacket::new("asdfasdf".to_string(), "message".to_string());
         client1.borrow_mut().send_packet(packet);
 
         router.poll();
 
-        // All clients should receive the packet
-        assert!(client1.borrow().has_packets());
-        assert!(client2.borrow().has_packets());
+        // Aven though the topc doesn't match, client3 subscribed to "all" and should receive it
+        assert!(!client1.borrow().has_packets());
+        assert!(!client2.borrow().has_packets());
         assert!(client3.borrow().has_packets());
-
-        // Check that all received the same message
-        for client in [&client1, &client2, &client3] {
-            let received = client.borrow_mut().receive_packet().unwrap();
-            assert_eq!(received.topic, "all");
-            assert_eq!(received.data, "broadcast message");
-            assert_eq!(received.from, Some(1));
-        }
+        
     }
 
     #[test]

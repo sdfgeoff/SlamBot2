@@ -1,6 +1,7 @@
 #![no_std]
 
 use cobs::{CobsEncoder, decode_in_place};
+use cobs::DecodeError;
 use crc16::{ARC, State};
 use heapless::Vec;
 use serde::{Deserialize, Serialize};
@@ -52,15 +53,16 @@ pub fn encode_packet(
 #[derive(Debug)]
 pub enum PacketDecodeErr {
     SerdeError(serde_cbor::Error),
-    CobsError,
+    TooSmall,
+    CobsError(DecodeError),
     CrcMismatchError,
 }
 
 pub fn decode_packet<T: for<'a> Deserialize<'a>>(data: &mut [u8]) -> Result<T, PacketDecodeErr> {
     // COBS
-    let decoded_size = decode_in_place(data).map_err(|_| PacketDecodeErr::CobsError)?;
+    let decoded_size = decode_in_place(data).map_err(PacketDecodeErr::CobsError)?;
     if decoded_size < 2 {
-        return Err(PacketDecodeErr::CobsError);
+        return Err(PacketDecodeErr::TooSmall);
     }
     let (payload, crc_bytes) = data[..decoded_size].split_at_mut(decoded_size - 2);
 

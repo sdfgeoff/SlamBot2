@@ -37,6 +37,19 @@ fn test_encode_decode_success() {
 }
 
 #[test]
+fn test_with_zero_bytes() {
+    let message = SimpleMessage { data: 0 };
+
+    let mut encode_buffer = [0u8; 50];
+    let encoded_size = encode_packet(&message, &mut encode_buffer).unwrap();
+
+    let mut decode_buffer = encode_buffer.clone();
+    let decoded_message: SimpleMessage = decode_packet(&mut decode_buffer[..encoded_size]).unwrap();
+
+    assert_eq!(message, decoded_message);
+}
+
+#[test]
 fn test_encode_decode_simple_message() {
     let message = SimpleMessage { data: 42 };
 
@@ -64,18 +77,17 @@ fn test_encode_buffer_too_small() {
 
 #[test]
 fn test_decode_corrupted_cobs_data() {
-    let mut corrupted_data = [0u8, 1u8, 2u8, 0u8, 4u8]; // Invalid COBS data
-    let result: Result<SimpleMessage, PacketDecodeErr> = decode_packet(&mut corrupted_data);
+    let mut corrupted_data = [8u8, 1u8, 2u8, 0u8, 4u8]; // Invalid COBS data
+    let result: Result<SimpleMessage, PacketDecodeErr> = dbg!(decode_packet(&mut corrupted_data));
 
-    assert!(matches!(result, Err(PacketDecodeErr::CobsError)));
+    assert!(matches!(result, Err(PacketDecodeErr::CobsError(_))));
 }
 
 #[test]
 fn test_decode_too_short_data() {
     let mut short_data = [0u8]; // Too short for CRC
     let result: Result<SimpleMessage, PacketDecodeErr> = decode_packet(&mut short_data);
-
-    assert!(matches!(result, Err(PacketDecodeErr::CobsError)));
+    assert!(matches!(result, Err(PacketDecodeErr::TooSmall)));
 }
 
 #[test]
