@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use topics::{PacketData, PacketFormat};
 
-fn get_current_time() -> u64 {
+pub fn get_current_time() -> u64 {
     let now: DateTime<Utc> = Utc::now();
     now.timestamp_micros() as u64
 }

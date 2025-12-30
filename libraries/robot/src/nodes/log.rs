@@ -12,23 +12,30 @@ impl Log {
         let client = Rc::new(RefCell::new(Client::<PacketFormat>::default()));
         if log_all {
             client.borrow_mut().subscriptions.push("all".to_string());
-        }
-        client.borrow_mut().subscriptions.push(
-            topics::PacketData::LogMessage(topics::LogMessage {
-                level: LogLevel::Info,
-                event: "".try_into().expect("Arge"),
-                json: None,
-            })
-            .topic()
-            .to_string(),
-        );
+        } else {
+            client.borrow_mut().subscriptions.push(
+                topics::PacketData::LogMessage(topics::LogMessage {
+                    level: LogLevel::Info,
+                    event: "".try_into().expect("Arge"),
+                    json: None,
+                })
+                .topic()
+                .to_string(),
+            );
+        };
         Log { client }
     }
 
     pub fn step(&mut self) {
         let log_packets = self.client.borrow_mut().fetch_all();
         for packet in log_packets {
-            println!("{}", serde_json::to_string(&(*packet)).unwrap());
+            println!(
+                "{}| {}",
+                chrono::DateTime::from_timestamp_micros(packet.time as i64)
+                    .expect("datetime overflow")
+                    .to_rfc3339(),
+                serde_json::to_string(&(*packet)).unwrap()
+            );
         }
     }
 }
