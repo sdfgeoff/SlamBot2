@@ -8,7 +8,10 @@ pub struct Clock {
 
 impl Clock {
     pub fn new() -> Self {
-        Clock { offset: None, average_round_trip_time: None }
+        Clock {
+            offset: None,
+            average_round_trip_time: None,
+        }
     }
 
     fn get_raw_time(&self) -> u64 {
@@ -43,9 +46,7 @@ impl Clock {
             this_round_trip_time
         };
 
-        
-
-        let estimated_offset = (response.recieved_time.wrapping_add(rtt / 2));
+        let estimated_offset = response.recieved_time.wrapping_add(rtt / 2);
 
         if let Some(offset) = self.offset {
             let new_offset = (offset * 7 + estimated_offset) / 8;

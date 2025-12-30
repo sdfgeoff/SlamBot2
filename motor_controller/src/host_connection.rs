@@ -1,18 +1,16 @@
-use esp_hal::{Blocking};
+use esp_hal::Blocking;
 
-use esp_hal::usb_serial_jtag::UsbSerialJtag;
-use packet_encoding::{PacketEncodeErr, encode_packet};
-use esp_hal::time::{Instant, Duration};
-use heapless::{String, format, Vec};
-use core::str::FromStr;
-use topics::*;
 use crate::Clock;
-
-
+use core::str::FromStr;
+use esp_hal::time::{Duration, Instant};
+use esp_hal::usb_serial_jtag::UsbSerialJtag;
+use heapless::{String, Vec, format};
+use packet_encoding::{PacketEncodeErr, encode_packet};
+use topics::*;
 
 pub enum SendError {
     EncodeError(PacketEncodeErr),
-    Timeout
+    Timeout,
 }
 
 fn send_message(
@@ -23,7 +21,8 @@ fn send_message(
 
     let mut encode_buffer = [0u8; 600];
     encode_buffer[0] = 0; // COBS initial byte
-    let encoded_size = encode_packet(message, &mut encode_buffer[1..]).map_err(SendError::EncodeError)?;
+    let encoded_size =
+        encode_packet(message, &mut encode_buffer[1..]).map_err(SendError::EncodeError)?;
     encode_buffer[encoded_size + 1] = 0x00; // COBS final byte
     let encode_sized = &encode_buffer[..encoded_size + 2];
 
@@ -50,6 +49,7 @@ fn send_message(
             }
         }
 
+        #[allow(clippy::nonminimal_bool)]
         if !(duration < TIMEOUT) {
             return Err(SendError::Timeout);
         }
@@ -58,14 +58,11 @@ fn send_message(
     Ok(())
 }
 
-
-
-
-
 pub struct HostConnection<'a> {
-    usb: UsbSerialJtag<'a , Blocking>,
+    usb: UsbSerialJtag<'a, Blocking>,
     packet_finder: packet_encoding::PacketFinder,
     message_id: u32,
+    decode_errors: u32,
 }
 
 impl<'a> HostConnection<'a> {
@@ -74,10 +71,16 @@ impl<'a> HostConnection<'a> {
             usb,
             packet_finder: packet_encoding::PacketFinder::new(),
             message_id: 0,
+            decode_errors: 0,
         }
     }
 
-    pub fn send_packet(&mut self, clock: &Clock, data: PacketData, to: Option<u16>) -> Result<(), SendError> {
+    pub fn send_packet(
+        &mut self,
+        clock: &Clock,
+        data: PacketData,
+        to: Option<u16>,
+    ) -> Result<(), SendError> {
         let packet = PacketFormat {
             to,
             from: None,
@@ -89,45 +92,47 @@ impl<'a> HostConnection<'a> {
         send_message(&mut self.usb, &packet)
     }
 
-
     pub fn step(&mut self, clock: &mut Clock) {
         while let Ok(byte) = self.usb.read_byte() {
             if let Some(mut packet) = self.packet_finder.push_byte(byte)
                 && !packet.is_empty()
             {
-                match packet_encoding::decode_packet::<PacketFormat>(&mut packet) {
-                    Ok(packet) => {
-                        match packet.data {
-                            PacketData::ClockResponse(resp) => {
-                                let round_trip_time = clock.handle_clock_response(&resp);
+                if let Ok(packet) = packet_encoding::decode_packet::<PacketFormat>(&mut packet) {
+                    match packet.data {
+                        PacketData::ClockResponse(resp) => {
+                            let round_trip_time = clock.handle_clock_response(&resp);
 
-                                let mut values: Vec<topics::DiagnosticKeyValue, 8> = Vec::new();
-                                values.push(topics::DiagnosticKeyValue {
+                            let mut values: Vec<topics::DiagnosticKeyValue, 8> = Vec::new();
+                            values
+                                .push(topics::DiagnosticKeyValue {
                                     key: String::from_str("offset").unwrap(),
                                     value: format!("{}", &clock.offset.unwrap_or(0)).unwrap(),
-                                }).ok();
-                                values.push(topics::DiagnosticKeyValue {
+                                })
+                                .ok();
+                            values
+                                .push(topics::DiagnosticKeyValue {
                                     key: String::from_str("rtt").unwrap(),
                                     value: format!("{}", round_trip_time).unwrap(),
-                                }).ok();
-                                self.send_packet(
-                                    clock,
-                                    PacketData::DiagnosticMsg(topics::DiagnosticMsg {
-                                        level: DiagnosticStatus::Ok,
-                                        name: String::from_str("time_sync").unwrap(),
-                                        message: String::from_str("").unwrap(),
-                                        values: values,
-                                    }),
-                                    None,
-                                ).ok();
+                                })
+                                .ok();
+                            self.send_packet(
+                                clock,
+                                PacketData::DiagnosticMsg(topics::DiagnosticMsg {
+                                    level: DiagnosticStatus::Ok,
+                                    name: String::from_str("time_sync").unwrap(),
+                                    message: String::from_str("").unwrap(),
+                                    values,
+                                }),
+                                None,
+                            )
+                            .ok();
+                        }
+                        _ => {}
+                    }
 
-                            }
-                            _ => {}
-                        }   
-                    }
-                    Err(_e) => {
-                        // packet_errors = packet_errors.wrapping_add(1);
-                    }
+                } else {
+                        self.decode_errors = self.decode_errors.wrapping_add(1);
+                    
                 }
             }
         }
