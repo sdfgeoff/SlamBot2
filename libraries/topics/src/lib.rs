@@ -20,20 +20,6 @@ pub struct ClockResponse {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub enum LogLevel {
-    Info = 1,
-    Warning = 2,
-    Error = 3,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct LogMessage {
-    pub level: LogLevel,
-    pub event: String<32>,
-    pub json: Option<String<256>>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
 #[non_exhaustive]
 pub enum PacketData {
     ClockRequest(ClockRequest),

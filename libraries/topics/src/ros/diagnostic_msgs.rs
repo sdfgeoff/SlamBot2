@@ -12,7 +12,7 @@ pub enum DiagnosticStatus {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct DiagnosticKeyValue {
     pub key: String<16>,
-    pub value: String<32>,
+    pub value: String<16>, // about enough to store a double
 }
 
 #[derive(Serialize, Deserialize, Debug)]
