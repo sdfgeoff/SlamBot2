@@ -20,26 +20,6 @@ esp-bootloader-esp-idf = { version = "0.4.0", features = ["esp32c3"] }
 critical-section = "1.2.0"
 embedded-io = "0.7.1"
 esp-alloc = "0.9.0"
-esp-radio = { version = "0.17.0", features = [
-  "esp-alloc",
-  "esp32c3",
-  "smoltcp",
-  "unstable",
-  "wifi",
-] }
-smoltcp = { version = "0.12.0", default-features = false, features = [
-  "medium-ethernet",
-  "multicast",
-  "proto-dhcpv4",
-  "proto-dns",
-  "proto-ipv4",
-  "socket-dns",
-  "socket-icmp",
-  "socket-raw",
-  "socket-tcp",
-  "socket-udp",
-] }
-
 
 heapless = { version = "0.9.2", features = ["serde"] }
 packet_encoding = { path = "../libraries/packet_encoding", default-features = false }

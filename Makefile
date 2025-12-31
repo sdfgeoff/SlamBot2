@@ -1,7 +1,7 @@
 .PHONY: motor_controller test
 
 motor_controller:
-	cd motor_controller && cargo build --release
+	cd motor_controller && cargo run --release
 
 test:
 	cd libraries && cargo test

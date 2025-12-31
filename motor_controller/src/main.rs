@@ -12,7 +12,7 @@ use core::str::FromStr;
 use esp_hal::main;
 use esp_hal::time::{Duration, Instant};
 
-use esp_hal::gpio::{Level, Output, OutputConfig};
+use esp_hal::gpio::{Level, Output, OutputConfig, Input, InputConfig, Io};
 use esp_hal::usb_serial_jtag::UsbSerialJtag;
 
 esp_bootloader_esp_idf::esp_app_desc!();
@@ -27,16 +27,44 @@ use clock::Clock;
 mod host_connection;
 use host_connection::HostConnection;
 
+mod hardware;
+use hardware::{Hardware, MotorUnit, HARDWARE};
+
 #[main]
 fn main() -> ! {
     let peripherals = esp_hal::init(esp_hal::Config::default());
 
-    let mut led = Output::new(peripherals.GPIO8, Level::High, OutputConfig::default());
 
     let mut clock = Clock::new();
     let mut lastClockSyncTime = Instant::now();
+    let mut lastEncoderSendTime = Instant::now();
 
     let mut host_connection = HostConnection::new(UsbSerialJtag::new(peripherals.USB_DEVICE));
+
+
+    let mut led = Output::new(peripherals.GPIO8, Level::High, OutputConfig::default());
+
+
+    let mut io = Io::new(peripherals.IO_MUX);
+    io.set_interrupt_handler(hardware::encoder_interrupt_handler);
+
+
+    let mut hardware = Hardware {
+        motor_left: MotorUnit {
+            encoder_a: Input::new(peripherals.GPIO20, InputConfig::default()),
+            encoder_b: Input::new(peripherals.GPIO21, InputConfig::default()),
+            encoder_count: 0,
+        },
+        motor_right: MotorUnit {
+            encoder_a: Input::new(peripherals.GPIO7, InputConfig::default()),
+            encoder_b: Input::new(peripherals.GPIO6, InputConfig::default()),
+            encoder_count: 0,
+        },
+    };
+    hardware.configure();
+    critical_section::with(|cs| {
+        HARDWARE.borrow(cs).replace(Some(hardware));
+    });
 
     // Send boot message
     host_connection
@@ -65,11 +93,54 @@ fn main() -> ! {
             lastClockSyncTime = loopStartTime;
             led.toggle();
         }
+        if lastEncoderSendTime.elapsed() >= Duration::from_millis(100) {
+            let (left_count, right_count) = critical_section::with(|cs| {
+                if let Some(hardware) = HARDWARE.borrow(cs).borrow_mut().as_mut() {
+                    let left = hardware.motor_left.encoder_count;
+                    let right = hardware.motor_right.encoder_count;
+                    (left, right)
+                } else {
+                    (0, 0)
+                }
+            });
+
+            let mut values: Vec<DiagnosticKeyValue, 8> = Vec::new();
+            values
+                .push(DiagnosticKeyValue {
+                    key: String::from_str("left").unwrap(),
+                    value: heapless::format!("{}", left_count).unwrap(),
+                })
+                .ok();
+            values
+                .push(DiagnosticKeyValue {
+                    key: String::from_str("right").unwrap(),
+                    value: heapless::format!("{}", right_count).unwrap(),
+                })
+                .ok();
+
+            host_connection
+                .send_packet(
+                    &clock,
+                    PacketData::DiagnosticMsg(DiagnosticMsg {
+                        level: DiagnosticStatus::Ok,
+                        name: String::from_str("encoder_counts").unwrap(),
+                        message: String::from_str("").unwrap(),
+                        values,
+                    }),
+                    None,
+                )
+                .unwrap_or_else(|_e| {
+                    packet_send_errors = packet_send_errors.wrapping_add(1);
+                });
+
+            lastEncoderSendTime = loopStartTime;
+        }
         host_connection.step(&mut clock);
     }
 }
 
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo) -> ! {
-    loop {}
+    loop {
+    }
 }
