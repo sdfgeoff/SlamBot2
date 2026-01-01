@@ -27,8 +27,8 @@ use clock::Clock;
 mod host_connection;
 use host_connection::HostConnection;
 
-mod hardware;
-use hardware::{Hardware, MotorUnit, HARDWARE};
+mod encoders;
+use encoders::{Encoders, Encoder, ENCODER_STATE};
 
 #[main]
 fn main() -> ! {
@@ -46,24 +46,24 @@ fn main() -> ! {
 
 
     let mut io = Io::new(peripherals.IO_MUX);
-    io.set_interrupt_handler(hardware::encoder_interrupt_handler);
+    io.set_interrupt_handler(encoders::encoder_interrupt_handler);
 
 
-    let mut hardware = Hardware {
-        motor_left: MotorUnit {
-            encoder_a: Input::new(peripherals.GPIO20, InputConfig::default()),
-            encoder_b: Input::new(peripherals.GPIO21, InputConfig::default()),
-            encoder_count: 0,
+    let mut encoders = Encoders {
+        left: Encoder {
+            a_input: Input::new(peripherals.GPIO20, InputConfig::default()),
+            b_input: Input::new(peripherals.GPIO21, InputConfig::default()),
+            count: 0,
         },
-        motor_right: MotorUnit {
-            encoder_a: Input::new(peripherals.GPIO7, InputConfig::default()),
-            encoder_b: Input::new(peripherals.GPIO6, InputConfig::default()),
-            encoder_count: 0,
+        right: Encoder {
+            a_input: Input::new(peripherals.GPIO7, InputConfig::default()),
+            b_input: Input::new(peripherals.GPIO6, InputConfig::default()),
+            count: 0,
         },
     };
-    hardware.configure();
+    encoders.configure();
     critical_section::with(|cs| {
-        HARDWARE.borrow(cs).replace(Some(hardware));
+        ENCODER_STATE.borrow(cs).replace(Some(encoders));
     });
 
     // Send boot message
@@ -95,9 +95,9 @@ fn main() -> ! {
         }
         if lastEncoderSendTime.elapsed() >= Duration::from_millis(100) {
             let (left_count, right_count) = critical_section::with(|cs| {
-                if let Some(hardware) = HARDWARE.borrow(cs).borrow_mut().as_mut() {
-                    let left = hardware.motor_left.encoder_count;
-                    let right = hardware.motor_right.encoder_count;
+                if let Some(encoders) = ENCODER_STATE.borrow(cs).borrow_mut().as_mut() {
+                    let left = encoders.left.count;
+                    let right = encoders.right.count;
                     (left, right)
                 } else {
                     (0, 0)
