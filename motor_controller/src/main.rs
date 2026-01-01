@@ -8,20 +8,20 @@
 
 use core::str::FromStr;
 
-use esp_hal::ledc::{LSGlobalClkSource, Ledc, LowSpeed, channel, timer};
-use esp_hal::ledc::timer::TimerIFace;
-use esp_hal::ledc::channel::ChannelIFace;
 use esp_hal::gpio::DriveMode;
+use esp_hal::ledc::channel::ChannelIFace;
+use esp_hal::ledc::timer::TimerIFace;
+use esp_hal::ledc::{LSGlobalClkSource, Ledc, LowSpeed, channel, timer};
 // use esp_backtrace as _;
 use esp_hal::main;
 use esp_hal::time::{Duration, Instant, Rate};
 
-use esp_hal::gpio::{Level, Output, OutputConfig, Input, InputConfig, Io};
+use esp_hal::gpio::{Input, InputConfig, Io, Level, Output, OutputConfig};
 use esp_hal::usb_serial_jtag::UsbSerialJtag;
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
-use heapless::{String, Vec};
+use heapless::{String, Vec, format};
 
 use topics::*;
 
@@ -32,7 +32,7 @@ mod host_connection;
 use host_connection::HostConnection;
 
 mod encoders;
-use encoders::{Encoders, Encoder, ENCODER_STATE};
+use encoders::{ENCODER_STATE, Encoder, Encoders};
 
 mod motor_controller;
 use motor_controller::{MotorControllers, MotorDriver};
@@ -41,10 +41,10 @@ use motor_controller::{MotorControllers, MotorDriver};
 fn main() -> ! {
     let peripherals = esp_hal::init(esp_hal::Config::default());
 
-
     let mut clock = Clock::new();
     let mut lastClockSyncTime = Instant::now();
     let mut lastEncoderSendTime = Instant::now();
+
 
     let mut host_connection = HostConnection::new(UsbSerialJtag::new(peripherals.USB_DEVICE));
 
@@ -52,7 +52,6 @@ fn main() -> ! {
 
     let mut io = Io::new(peripherals.IO_MUX);
     io.set_interrupt_handler(encoders::encoder_interrupt_handler);
-
 
     let mut encoders = Encoders {
         left: Encoder {
@@ -71,50 +70,69 @@ fn main() -> ! {
         ENCODER_STATE.borrow(cs).replace(Some(encoders));
     });
 
-
     let mut ledc = Ledc::new(peripherals.LEDC);
     ledc.set_global_slow_clock(LSGlobalClkSource::APBClk);
 
     let mut lstimer0 = ledc.timer::<LowSpeed>(timer::Number::Timer1);
-    lstimer0.configure(timer::config::Config {
-        duty: timer::config::Duty::Duty5Bit,
-        clock_source: timer::LSClockSource::APBClk,
-        frequency: Rate::from_khz(24),
-    }).expect("Failed to configure LEDC timer");
+    lstimer0
+        .configure(timer::config::Config {
+            duty: timer::config::Duty::Duty5Bit,
+            clock_source: timer::LSClockSource::APBClk,
+            frequency: Rate::from_khz(24),
+        })
+        .expect("Failed to configure LEDC timer");
 
-    let config = channel::config::Config{
+    let config = channel::config::Config {
         timer: &lstimer0,
         duty_pct: 0,
         drive_mode: DriveMode::PushPull,
     };
 
-    let mut motor_left_a = ledc.channel(channel::Number::Channel0, Output::new(peripherals.GPIO0, Level::High, OutputConfig::default()));
-    motor_left_a.configure(config).expect("Failed to configure LEDC channel 0");
-
-    let mut motor_left_b = ledc.channel(channel::Number::Channel1, Output::new(peripherals.GPIO1, Level::High, OutputConfig::default()));
-    motor_left_b.configure(config).expect("Failed to configure LEDC channel 1");
-
-    let mut motor_right_a = ledc.channel(channel::Number::Channel2, Output::new(peripherals.GPIO3, Level::High, OutputConfig::default()));
-    motor_right_a.configure(config).expect("Failed to configure LEDC channel 2");
-
-    let mut motor_right_b = ledc.channel(channel::Number::Channel3, Output::new(peripherals.GPIO4, Level::High, OutputConfig::default()));
-    motor_right_b.configure(config).expect("Failed to configure LEDC channel 3");
-
     let mut motor_controllers = MotorControllers {
         left: MotorDriver {
-            a: motor_left_a,
-            b: motor_left_b,
+            a: ledc.channel(
+                channel::Number::Channel0,
+                Output::new(peripherals.GPIO0, Level::High, OutputConfig::default()),
+            ),
+            b: ledc.channel(
+                channel::Number::Channel1,
+                Output::new(peripherals.GPIO1, Level::High, OutputConfig::default()),
+            ),
         },
         right: MotorDriver {
-            a: motor_right_a,
-            b: motor_right_b,
+            a: ledc.channel(
+                channel::Number::Channel2,
+                Output::new(peripherals.GPIO3, Level::High, OutputConfig::default()),
+            ),
+            b: ledc.channel(
+                channel::Number::Channel3,
+                Output::new(peripherals.GPIO4, Level::High, OutputConfig::default()),
+            ),
         },
     };
 
-    
+    motor_controllers
+        .left
+        .a
+        .configure(config)
+        .expect("Failed to configure LEDC channel 0");
+    motor_controllers
+        .left
+        .b
+        .configure(config)
+        .expect("Failed to configure LEDC channel 1");
+    motor_controllers
+        .right
+        .a
+        .configure(config)
+        .expect("Failed to configure LEDC channel 2");
+    motor_controllers
+        .right
+        .b
+        .configure(config)
+        .expect("Failed to configure LEDC channel 3");
 
     motor_controllers.left.set_speed(0.2);
-
 
     // Send boot message
     host_connection
@@ -144,6 +162,7 @@ fn main() -> ! {
             led.toggle();
         }
         if lastEncoderSendTime.elapsed() >= Duration::from_millis(100) {
+            
             let (left_count, right_count) = critical_section::with(|cs| {
                 if let Some(encoders) = ENCODER_STATE.borrow(cs).borrow_mut().as_mut() {
                     let left = encoders.left.count;
@@ -155,18 +174,8 @@ fn main() -> ! {
             });
 
             let mut values: Vec<DiagnosticKeyValue, 8> = Vec::new();
-            values
-                .push(DiagnosticKeyValue {
-                    key: String::from_str("left").unwrap(),
-                    value: heapless::format!("{}", left_count).unwrap(),
-                })
-                .ok();
-            values
-                .push(DiagnosticKeyValue {
-                    key: String::from_str("right").unwrap(),
-                    value: heapless::format!("{}", right_count).unwrap(),
-                })
-                .ok();
+            values.push(diag_value("left", &left_count)).ok();
+            values.push(diag_value("right", &right_count)).ok();
 
             host_connection
                 .send_packet(
@@ -185,12 +194,42 @@ fn main() -> ! {
 
             lastEncoderSendTime = loop_start_time;
         }
-        host_connection.step(&mut clock);
+        while let Some(packet) = host_connection.step() {
+            match packet.data {
+                PacketData::ClockResponse(resp) => {
+                    let round_trip_time = clock.handle_clock_response(&resp);
+                    let mut values: Vec<topics::DiagnosticKeyValue, 8> = Vec::new();
+                    values
+                        .push(diag_value("offset", &clock.offset.unwrap_or(0)))
+                        .ok();
+                    values.push(diag_value("rtt", &round_trip_time)).ok();
+                    host_connection
+                        .send_packet(
+                            &clock,
+                            PacketData::DiagnosticMsg(topics::DiagnosticMsg {
+                                level: DiagnosticStatus::Ok,
+                                name: String::from_str("time_sync").unwrap(),
+                                message: String::from_str("").unwrap(),
+                                values,
+                            }),
+                            None,
+                        )
+                        .ok();
+                }
+                _ => {}
+            }
+        }
     }
 }
 
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo) -> ! {
-    loop {
+    loop {}
+}
+
+fn diag_value(key: &str, value: &impl core::fmt::Display) -> topics::DiagnosticKeyValue {
+    topics::DiagnosticKeyValue {
+        key: String::from_str(key).unwrap(),
+        value: format!("{}", value).unwrap(),
     }
 }

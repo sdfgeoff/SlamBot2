@@ -3,10 +3,8 @@ use heapless::String;
 use packet_trait::PacketTrait;
 use serde::{Deserialize, Serialize};
 
-
 pub mod ros;
 pub use ros::*;
-
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ClockRequest {

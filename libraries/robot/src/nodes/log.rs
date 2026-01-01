@@ -1,8 +1,8 @@
+use heapless::Vec;
 use packet_router::Client;
 use std::cell::RefCell;
 use std::rc::Rc;
 use topics::{DiagnosticStatus, PacketFormat};
-use heapless::{Vec};
 
 pub struct Log {
     pub client: Rc<RefCell<Client<PacketFormat>>>,

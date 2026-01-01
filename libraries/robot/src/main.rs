@@ -4,10 +4,10 @@ use std::rc::Rc;
 use core::str::FromStr;
 use std::time::Duration;
 mod nodes;
+use heapless::String;
 use nodes::clock::{Clock, get_current_time};
 use nodes::log::Log;
 use nodes::serial_client::SerialClient;
-use heapless::String;
 
 use topics::PacketFormat;
 
@@ -16,7 +16,8 @@ fn main() {
     let mut router = packet_router::Router::<PacketFormat>::new();
 
     //let device_path = "/dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_98:3D:AE:52:AD:78-if00";
-    let device_path = "/dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_98:3D:AE:50:AA:F8-if00";
+    let device_path =
+        "/dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_98:3D:AE:50:AA:F8-if00";
     let mut serialport = serial::open(&device_path).expect("Failed to open serial port");
     serialport
         .set_timeout(Duration::from_millis(1))
@@ -42,35 +43,48 @@ fn main() {
         if serial_stats_last_sent.elapsed().as_secs() >= 5 {
             let mut values = heapless::Vec::new();
             // serde_json::to_string(&serial_client.stats).unwrap();
-            values.push(topics::DiagnosticKeyValue {
-                key: String::from_str("decode_errors").unwrap(),
-                value: heapless::format!("{}", serial_client.stats.decode_error_count).unwrap(),
-            }).ok();
-            values.push(topics::DiagnosticKeyValue {
-                key: String::from_str("tx_packets").unwrap(),
-                value: heapless::format!("{}", serial_client.stats.tx_packets).unwrap(),
-            }).ok();
-            values.push(topics::DiagnosticKeyValue {
-                key: String::from_str("tx_bytes").unwrap(),
-                value: heapless::format!("{}", serial_client.stats.tx_bytes).unwrap(),
-            }).ok();
-            values.push(topics::DiagnosticKeyValue {
-                key: String::from_str("rx_packets").unwrap(),
-                value: heapless::format!("{}", serial_client.stats.rx_packets).unwrap(),
-            }).ok();
-            values.push(topics::DiagnosticKeyValue {
-                key: String::from_str("rx_bytes").unwrap(),
-                value: heapless::format!("{}", serial_client.stats.rx_bytes).unwrap(),
-            }).ok();
-            values.push(topics::DiagnosticKeyValue {
-                key: String::from_str("encode_errors").unwrap(),
-                value: heapless::format!("{}", serial_client.stats.encode_error_count).unwrap(),
-            }).ok();
-            values.push(topics::DiagnosticKeyValue {
-                key: String::from_str("write_errors").unwrap(),
-                value: heapless::format!("{}", serial_client.stats.write_error_count).unwrap(),
-            }).ok();
-
+            values
+                .push(topics::DiagnosticKeyValue {
+                    key: String::from_str("decode_errors").unwrap(),
+                    value: heapless::format!("{}", serial_client.stats.decode_error_count).unwrap(),
+                })
+                .ok();
+            values
+                .push(topics::DiagnosticKeyValue {
+                    key: String::from_str("tx_packets").unwrap(),
+                    value: heapless::format!("{}", serial_client.stats.tx_packets).unwrap(),
+                })
+                .ok();
+            values
+                .push(topics::DiagnosticKeyValue {
+                    key: String::from_str("tx_bytes").unwrap(),
+                    value: heapless::format!("{}", serial_client.stats.tx_bytes).unwrap(),
+                })
+                .ok();
+            values
+                .push(topics::DiagnosticKeyValue {
+                    key: String::from_str("rx_packets").unwrap(),
+                    value: heapless::format!("{}", serial_client.stats.rx_packets).unwrap(),
+                })
+                .ok();
+            values
+                .push(topics::DiagnosticKeyValue {
+                    key: String::from_str("rx_bytes").unwrap(),
+                    value: heapless::format!("{}", serial_client.stats.rx_bytes).unwrap(),
+                })
+                .ok();
+            values
+                .push(topics::DiagnosticKeyValue {
+                    key: String::from_str("encode_errors").unwrap(),
+                    value: heapless::format!("{}", serial_client.stats.encode_error_count).unwrap(),
+                })
+                .ok();
+            values
+                .push(topics::DiagnosticKeyValue {
+                    key: String::from_str("write_errors").unwrap(),
+                    value: heapless::format!("{}", serial_client.stats.write_error_count).unwrap(),
+                })
+                .ok();
 
             serial_client
                 .client
@@ -90,7 +104,5 @@ fn main() {
                 });
             serial_stats_last_sent = std::time::Instant::now();
         }
-
-
     }
 }
