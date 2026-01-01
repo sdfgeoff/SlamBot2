@@ -622,6 +622,7 @@ name = "espc3-test-project"
 version = "0.1.0"
 dependencies = [
  "critical-section",
+ "embedded-hal 1.0.0",
  "embedded-io 0.7.1",
  "esp-alloc",
  "esp-bootloader-esp-idf",

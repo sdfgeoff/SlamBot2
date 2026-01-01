@@ -1,4 +1,6 @@
-use esp_hal::ledc::{LowSpeed, channel::Channel};
+use esp_hal::{gpio::{DriveMode, Level, Output, OutputConfig}, ledc::{Ledc, LowSpeed, channel::{self, Channel, ChannelHW, ChannelIFace}, timer::{Timer, self, TimerIFace}}, peripherals::Peripherals, time::Rate};
+use embedded_hal::pwm::SetDutyCycle;
+use esp_hal::gpio::OutputPin;
 // use esp_hal::time::{Duration, Instant};
 
 
@@ -67,8 +69,8 @@ use esp_hal::ledc::{LowSpeed, channel::Channel};
 
 
 pub struct MotorDriver<'a> {
-    a: Channel<'a, LowSpeed>,
-    b: Channel<'a, LowSpeed>,
+    pub a: Channel<'a, LowSpeed>,
+    pub b: Channel<'a, LowSpeed>,
 }
 
 impl<'a> MotorDriver<'a> {
@@ -80,13 +82,33 @@ impl<'a> MotorDriver<'a> {
         } else {
             speed
         };
-
-        if clamped_speed >= 0.0 {
-            self.a.set_duty_hw((clamped_speed * self.a.get_max_duty() as f32) as u32);
-            self.b.set_duty_hw(0);
-        } else {
+        if speed < 0.01 && speed > -0.01 {
             self.a.set_duty_hw(0);
-            self.b.set_duty_hw((-clamped_speed * self.b.get_max_duty() as f32) as u32);
+            self.b.set_duty_hw(0);
+            return;
+        }
+        let amax = self.a.max_duty_cycle();
+        let bmax = self.b.max_duty_cycle();
+        if clamped_speed >= 0.0 {
+            self.a.set_duty_hw(((1.0 - clamped_speed) * amax as f32) as u32);
+            self.b.set_duty_hw(bmax as u32);
+        } else {
+            self.a.set_duty_hw(amax as u32);
+            self.b.set_duty_hw(((1.0 + clamped_speed) * bmax as f32) as u32);
         }
     }
+}
+
+
+
+
+pub struct MotorControllers<'a> {
+    pub left: MotorDriver<'a>,
+    pub right: MotorDriver<'a>,
+}
+
+
+
+
+impl<'a> MotorControllers<'a> {
 }

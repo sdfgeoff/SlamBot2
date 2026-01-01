@@ -8,9 +8,13 @@
 
 use core::str::FromStr;
 
+use esp_hal::ledc::{LSGlobalClkSource, Ledc, LowSpeed, channel, timer};
+use esp_hal::ledc::timer::TimerIFace;
+use esp_hal::ledc::channel::ChannelIFace;
+use esp_hal::gpio::DriveMode;
 // use esp_backtrace as _;
 use esp_hal::main;
-use esp_hal::time::{Duration, Instant};
+use esp_hal::time::{Duration, Instant, Rate};
 
 use esp_hal::gpio::{Level, Output, OutputConfig, Input, InputConfig, Io};
 use esp_hal::usb_serial_jtag::UsbSerialJtag;
@@ -31,6 +35,7 @@ mod encoders;
 use encoders::{Encoders, Encoder, ENCODER_STATE};
 
 mod motor_controller;
+use motor_controller::{MotorControllers, MotorDriver};
 
 #[main]
 fn main() -> ! {
@@ -43,9 +48,7 @@ fn main() -> ! {
 
     let mut host_connection = HostConnection::new(UsbSerialJtag::new(peripherals.USB_DEVICE));
 
-
     let mut led = Output::new(peripherals.GPIO8, Level::High, OutputConfig::default());
-
 
     let mut io = Io::new(peripherals.IO_MUX);
     io.set_interrupt_handler(encoders::encoder_interrupt_handler);
@@ -68,6 +71,51 @@ fn main() -> ! {
         ENCODER_STATE.borrow(cs).replace(Some(encoders));
     });
 
+
+    let mut ledc = Ledc::new(peripherals.LEDC);
+    ledc.set_global_slow_clock(LSGlobalClkSource::APBClk);
+
+    let mut lstimer0 = ledc.timer::<LowSpeed>(timer::Number::Timer1);
+    lstimer0.configure(timer::config::Config {
+        duty: timer::config::Duty::Duty5Bit,
+        clock_source: timer::LSClockSource::APBClk,
+        frequency: Rate::from_khz(24),
+    }).expect("Failed to configure LEDC timer");
+
+    let config = channel::config::Config{
+        timer: &lstimer0,
+        duty_pct: 0,
+        drive_mode: DriveMode::PushPull,
+    };
+
+    let mut motor_left_a = ledc.channel(channel::Number::Channel0, Output::new(peripherals.GPIO0, Level::High, OutputConfig::default()));
+    motor_left_a.configure(config).expect("Failed to configure LEDC channel 0");
+
+    let mut motor_left_b = ledc.channel(channel::Number::Channel1, Output::new(peripherals.GPIO1, Level::High, OutputConfig::default()));
+    motor_left_b.configure(config).expect("Failed to configure LEDC channel 1");
+
+    let mut motor_right_a = ledc.channel(channel::Number::Channel2, Output::new(peripherals.GPIO3, Level::High, OutputConfig::default()));
+    motor_right_a.configure(config).expect("Failed to configure LEDC channel 2");
+
+    let mut motor_right_b = ledc.channel(channel::Number::Channel3, Output::new(peripherals.GPIO4, Level::High, OutputConfig::default()));
+    motor_right_b.configure(config).expect("Failed to configure LEDC channel 3");
+
+    let mut motor_controllers = MotorControllers {
+        left: MotorDriver {
+            a: motor_left_a,
+            b: motor_left_b,
+        },
+        right: MotorDriver {
+            a: motor_right_a,
+            b: motor_right_b,
+        },
+    };
+
+    
+
+    motor_controllers.left.set_speed(0.2);
+
+
     // Send boot message
     host_connection
         .send_packet(
@@ -85,14 +133,14 @@ fn main() -> ! {
     let mut packet_send_errors: u32 = 0;
 
     loop {
-        let loopStartTime = Instant::now();
-        if lastClockSyncTime.elapsed() >= Duration::from_secs(5) {
+        let loop_start_time = Instant::now();
+        if lastClockSyncTime.elapsed() >= Duration::from_secs(1) {
             host_connection
                 .send_packet(&clock, clock.generate_request_data(), None)
                 .unwrap_or_else(|_e| {
                     packet_send_errors = packet_send_errors.wrapping_add(1);
                 });
-            lastClockSyncTime = loopStartTime;
+            lastClockSyncTime = loop_start_time;
             led.toggle();
         }
         if lastEncoderSendTime.elapsed() >= Duration::from_millis(100) {
@@ -135,7 +183,7 @@ fn main() -> ! {
                     packet_send_errors = packet_send_errors.wrapping_add(1);
                 });
 
-            lastEncoderSendTime = loopStartTime;
+            lastEncoderSendTime = loop_start_time;
         }
         host_connection.step(&mut clock);
     }
