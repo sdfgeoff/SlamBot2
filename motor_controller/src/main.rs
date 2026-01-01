@@ -30,6 +30,8 @@ use host_connection::HostConnection;
 mod encoders;
 use encoders::{Encoders, Encoder, ENCODER_STATE};
 
+mod motor_controller;
+
 #[main]
 fn main() -> ! {
     let peripherals = esp_hal::init(esp_hal::Config::default());
