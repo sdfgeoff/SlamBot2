@@ -1,5 +1,4 @@
 #![no_std]
-use heapless::String;
 use packet_trait::PacketTrait;
 use serde::{Deserialize, Serialize};
 

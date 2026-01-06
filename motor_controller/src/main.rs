@@ -12,12 +12,10 @@ use esp_hal::gpio::DriveMode;
 use esp_hal::ledc::channel::ChannelIFace;
 use esp_hal::ledc::timer::TimerIFace;
 use esp_hal::ledc::{LSGlobalClkSource, Ledc, LowSpeed, channel, timer};
-// use esp_backtrace as _;
 use esp_hal::main;
 use esp_hal::time::{Duration, Instant, Rate};
 
 use esp_hal::gpio::{Input, InputConfig, Io, Level, Output, OutputConfig};
-use esp_hal::usb_serial_jtag::UsbSerialJtag;
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
@@ -29,7 +27,7 @@ mod clock;
 use clock::Clock;
 
 mod host_connection;
-use host_connection::HostConnection;
+use host_connection::{HostConnection, NonBlockingJtagUart};
 
 mod encoders;
 use encoders::{ENCODER_STATE, Encoder, Encoders};
@@ -45,8 +43,10 @@ fn main() -> ! {
     let mut lastClockSyncTime = Instant::now();
     let mut lastEncoderSendTime = Instant::now();
 
-
-    let mut host_connection = HostConnection::new(UsbSerialJtag::new(peripherals.USB_DEVICE));
+    let mut host_connection = HostConnection::new(NonBlockingJtagUart::new(
+        peripherals.USB_DEVICE,
+        Duration::from_millis(2),
+    ));
 
     let mut led = Output::new(peripherals.GPIO8, Level::High, OutputConfig::default());
 
@@ -162,7 +162,6 @@ fn main() -> ! {
             led.toggle();
         }
         if lastEncoderSendTime.elapsed() >= Duration::from_millis(100) {
-            
             let (left_count, right_count) = critical_section::with(|cs| {
                 if let Some(encoders) = ENCODER_STATE.borrow(cs).borrow_mut().as_mut() {
                     let left = encoders.left.count;
