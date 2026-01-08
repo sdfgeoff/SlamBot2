@@ -1,8 +1,6 @@
 use packet_trait::PacketTrait;
 use serde::{Deserialize, Serialize};
 
-
-
 pub trait PacketDataTrait {
     fn topic(&self) -> &'static str;
 }

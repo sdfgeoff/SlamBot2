@@ -9,7 +9,7 @@ use nodes::clock::{Clock, get_current_time};
 use nodes::log::Log;
 use nodes::serial_client::SerialClient;
 
-use topics::{PacketFormat, PacketData};
+use topics::{PacketData, PacketFormat};
 
 fn main() {
     println!("Hello, world!");

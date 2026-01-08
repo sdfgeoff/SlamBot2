@@ -2,8 +2,8 @@ use packet_encoding::{PacketFinder, decode_packet, encode_packet};
 use packet_router::Client;
 use serde::Serialize;
 use serial::SerialPort;
-use std::{cell::RefCell, collections::HashSet};
 use std::rc::Rc;
+use std::{cell::RefCell, collections::HashSet};
 
 use topics::{PacketData, PacketFormat, SubscriptionRequest};
 
@@ -45,7 +45,11 @@ impl<V: SerialPort> SerialClient<V> {
 
     pub fn update_topics(&mut self, sub_req: &SubscriptionRequest) {
         let topics_set = HashSet::<String>::from_iter(sub_req.topics.iter().map(|s| s.to_string()));
-        if topics_set.symmetric_difference(&self.client.borrow().subscriptions).count() > 0 {
+        if topics_set
+            .symmetric_difference(&self.client.borrow().subscriptions)
+            .count()
+            > 0
+        {
             self.client.borrow_mut().subscriptions = topics_set;
         }
     }
@@ -69,7 +73,6 @@ impl<V: SerialPort> SerialClient<V> {
                         } else {
                             self.client.borrow_mut().client_to_router.push(packet);
                         }
-                        
                     }
                     Err(e) => {
                         self.stats.decode_error_count += 1;

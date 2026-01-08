@@ -25,7 +25,7 @@ pub fn encode_packet(
     encode_buffer: &mut [u8],
 ) -> Result<usize, PacketEncodeErr> {
     // CBOR
-    let mut serialize_buffer = [0u8; 500]; 
+    let mut serialize_buffer = [0u8; 500];
     // TODO: Wish I knew how to get rid of this fixed size buffer without needing alloc
     // We can get rid of this by using the various streaming/writer API's. The CBOR will need to feed both the CRC and the COBS encoder simultaneously.
     // We should performance test this!

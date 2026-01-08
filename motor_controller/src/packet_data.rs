@@ -1,14 +1,8 @@
 use serde::{Deserialize, Serialize};
 use topics::packet_data_enum;
 use topics::{
-    DiagnosticMsg,
-    ClockRequest,
-    ClockResponse,
-    PacketDataTrait,
-    OdometryDelta,
-    SubscriptionRequest,
+    ClockRequest, ClockResponse, DiagnosticMsg, OdometryDelta, PacketDataTrait, SubscriptionRequest, MotionVelocityRequest
 };
-
 
 packet_data_enum! {
     ClockRequest,
@@ -16,4 +10,5 @@ packet_data_enum! {
     DiagnosticMsg,
     OdometryDelta,
     SubscriptionRequest,
+    MotionVelocityRequest,
 }

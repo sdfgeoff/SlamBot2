@@ -2,7 +2,7 @@ use heapless::Vec;
 use packet_router::Client;
 use std::cell::RefCell;
 use std::rc::Rc;
-use topics::{DiagnosticStatus, PacketFormat, PacketData, PacketDataTrait};
+use topics::{DiagnosticStatus, PacketData, PacketDataTrait, PacketFormat};
 
 pub struct Log {
     pub client: Rc<RefCell<Client<PacketFormat<PacketData>>>>,

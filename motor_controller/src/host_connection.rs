@@ -74,14 +74,17 @@ impl<'a> NonBlockingJtagUart<'a> {
     }
 }
 
-fn send_message(usb: &mut NonBlockingJtagUart, message: &PacketFormat<PacketData>) -> Result<(), SendError> {
+fn send_message(
+    usb: &mut NonBlockingJtagUart,
+    message: &PacketFormat<PacketData>,
+) -> Result<(), SendError> {
     let mut encode_buffer = [0u8; 600];
     encode_buffer[0] = 0; // COBS initial byte
     let encoded_size =
         encode_packet(message, &mut encode_buffer[1..]).map_err(|_| SendError::EncodeError)?;
     encode_buffer[encoded_size + 1] = 0x00; // COBS final byte
     let encode_sized = &encode_buffer[..encoded_size + 2];
-    
+
     usb.write(encode_sized)
 }
 
@@ -124,7 +127,9 @@ impl<'a> HostConnection<'a> {
             if let Some(mut packet) = self.packet_finder.push_byte(byte)
                 && !packet.is_empty()
             {
-                if let Ok(packet) = packet_encoding::decode_packet::<PacketFormat<PacketData>>(&mut packet) {
+                if let Ok(packet) =
+                    packet_encoding::decode_packet::<PacketFormat<PacketData>>(&mut packet)
+                {
                     return Some(packet);
                 } else {
                     self.decode_errors = self.decode_errors.wrapping_add(1);

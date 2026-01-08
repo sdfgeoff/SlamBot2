@@ -1,6 +1,6 @@
 use packet_trait::PacketTrait;
-use std::rc::Rc;
 use std::collections::HashSet;
+use std::rc::Rc;
 
 pub struct Client<T: PacketTrait> {
     pub client_to_router: Vec<T>,

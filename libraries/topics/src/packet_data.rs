@@ -1,7 +1,5 @@
-
-
 #[macro_export]
-macro_rules! packet_data_enum {   
+macro_rules! packet_data_enum {
     ($($variant:ident),* $(,)?) => {
         #[derive(Serialize, Deserialize, Debug)]
         #[non_exhaustive]
@@ -11,7 +9,7 @@ macro_rules! packet_data_enum {
             )*
         }
 
-        
+
         impl PacketDataTrait for PacketData {
             fn topic(&self) -> &'static str {
                 match self {
@@ -23,4 +21,3 @@ macro_rules! packet_data_enum {
         }
     };
 }
-

@@ -6,7 +6,6 @@
     holding buffers for the duration of a data transfer."
 )]
 
-use core::f32::consts::PI;
 use core::str::FromStr;
 
 use esp_hal::gpio::DriveMode;
@@ -15,7 +14,7 @@ use esp_hal::ledc::timer::TimerIFace;
 use esp_hal::ledc::{LSGlobalClkSource, Ledc, LowSpeed, channel, timer};
 use esp_hal::main;
 use esp_hal::time::{Duration, Instant, Rate};
-use libm::{sinf, cosf};
+use libm::{cosf, sinf};
 
 use esp_hal::gpio::{Input, InputConfig, Io, Level, Output, OutputConfig};
 
@@ -39,6 +38,9 @@ use motor_controller::{MotorControllers, MotorDriver};
 
 mod packet_data;
 use packet_data::PacketData;
+
+mod consts;
+use consts::{WHEEL_CIRCUMFERENCE, WHEEL_BASE_WIDTH, ENCODER_TICKS_PER_REVOLUTION};
 
 #[main]
 fn main() -> ! {
@@ -114,6 +116,7 @@ fn main() -> ! {
                 Output::new(peripherals.GPIO4, Level::High, OutputConfig::default()),
             ),
         },
+        set_velocity_time: Instant::now(),
     };
 
     motor_controllers
@@ -137,7 +140,6 @@ fn main() -> ! {
         .configure(config)
         .expect("Failed to configure LEDC channel 3");
 
-    motor_controllers.left.set_speed(0.2);
 
     // Send boot message
     host_connection
@@ -155,13 +157,12 @@ fn main() -> ! {
 
     let mut packet_send_errors: u32 = 0;
 
-    let mut odometryTracker = OdometryDelta { 
-        start_time: clock.get_time(), 
-        end_time: clock.get_time(), 
-        delta_position: [0.0, 0.0], 
-        delta_orientation: 0.0, 
+    let mut odometryTracker = OdometryDelta {
+        start_time: clock.get_time(),
+        end_time: clock.get_time(),
+        delta_position: [0.0, 0.0],
+        delta_orientation: 0.0,
     };
-
 
     loop {
         let (left_count, right_count) = critical_section::with(|cs| {
@@ -176,7 +177,7 @@ fn main() -> ! {
             }
         });
         update_odometry(&mut odometryTracker, left_count, right_count);
-
+        motor_controllers.tick();
 
         let loop_start_time = Instant::now();
         if lastClockSyncTime.elapsed() >= Duration::from_secs(1) {
@@ -199,7 +200,7 @@ fn main() -> ! {
                 .unwrap_or_else(|_e| {
                     packet_send_errors = packet_send_errors.wrapping_add(1);
                 });
-            odometryTracker.start_time = odometryTracker.end_time.clone();
+            odometryTracker.start_time = odometryTracker.end_time;
             odometryTracker.delta_position = [0.0, 0.0];
             odometryTracker.delta_orientation = 0.0;
 
@@ -227,6 +228,9 @@ fn main() -> ! {
                         )
                         .ok();
                 }
+                PacketData::MotionVelocityRequest(req) => {
+                    motor_controllers.handle_speed_request(&req);
+                }
                 _ => {}
             }
         }
@@ -244,13 +248,6 @@ fn diag_value(key: &str, value: &impl core::fmt::Display) -> topics::DiagnosticK
         value: format!("{}", value).unwrap(),
     }
 }
-
-
-
-const WHEEL_CIRCUMFERENCE: f32 = PI * 2.0 * 0.02; // meters
-const WHEEL_BASE_WIDTH: f32 = 0.2; // meters
-const ENCODER_TICKS_PER_REVOLUTION: f32 = 11.0 * 4.0 * 35.0; // encoder * quadrature * gearbox
-
 
 fn update_odometry(odometry: &mut OdometryDelta, left_count: i64, right_count: i64) {
     let left_distance = -left_count as f32 * WHEEL_CIRCUMFERENCE / ENCODER_TICKS_PER_REVOLUTION;
