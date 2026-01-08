@@ -20,7 +20,7 @@ impl Clock {
         let request_topic = PacketData::ClockRequest(topics::ClockRequest { request_time: 0 })
             .topic()
             .to_string();
-        client.borrow_mut().subscriptions.push(request_topic);
+        client.borrow_mut().subscriptions.insert(request_topic);
         Clock { client }
     }
 

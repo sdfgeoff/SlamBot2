@@ -26,6 +26,7 @@ packet_encoding = { path = "../libraries/packet_encoding", default-features = fa
 topics = { path = "../libraries/topics" }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 embedded-hal = "1.0.0"
+libm = "0.2.15"
 
 
 

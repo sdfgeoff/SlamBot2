@@ -1,12 +1,11 @@
 use packet_encoding::{PacketFinder, decode_packet, encode_packet};
 use packet_router::Client;
-use packet_trait::PacketTrait;
 use serde::Serialize;
-use serde::de::DeserializeOwned;
 use serial::SerialPort;
-use std::cell::RefCell;
+use std::{cell::RefCell, collections::HashSet};
 use std::rc::Rc;
 
+use topics::{PacketData, PacketFormat, SubscriptionRequest};
 
 #[derive(Serialize)]
 pub struct SerialClientStats {
@@ -19,14 +18,14 @@ pub struct SerialClientStats {
     pub write_error_count: u32,
 }
 
-pub struct SerialClient<T: PacketTrait, V: SerialPort> {
+pub struct SerialClient<V: SerialPort> {
     serialport: V,
-    pub client: Rc<RefCell<Client<T>>>,
+    pub client: Rc<RefCell<Client<PacketFormat<PacketData>>>>,
     packet_finder: PacketFinder,
     pub stats: SerialClientStats,
 }
 
-impl<T: PacketTrait + DeserializeOwned + Serialize, V: SerialPort> SerialClient<T, V> {
+impl<V: SerialPort> SerialClient<V> {
     pub fn new(serialport: V) -> Self {
         SerialClient {
             serialport,
@@ -44,6 +43,13 @@ impl<T: PacketTrait + DeserializeOwned + Serialize, V: SerialPort> SerialClient<
         }
     }
 
+    pub fn update_topics(&mut self, sub_req: &SubscriptionRequest) {
+        let topics_set = HashSet::<String>::from_iter(sub_req.topics.iter().map(|s| s.to_string()));
+        if topics_set.symmetric_difference(&self.client.borrow().subscriptions).count() > 0 {
+            self.client.borrow_mut().subscriptions = topics_set;
+        }
+    }
+
     pub fn read(&mut self) {
         // Read from serial port into incoming queue
         let mut mini_buffer: [u8; 256] = [0u8; 256];
@@ -56,9 +62,14 @@ impl<T: PacketTrait + DeserializeOwned + Serialize, V: SerialPort> SerialClient<
                 self.stats.rx_bytes += packet.len() as u32;
 
                 let mut packet_data = packet.to_vec();
-                match decode_packet::<T>(&mut packet_data) {
+                match decode_packet::<PacketFormat<PacketData>>(&mut packet_data) {
                     Ok(packet) => {
-                        self.client.borrow_mut().client_to_router.push(packet);
+                        if let PacketData::SubscriptionRequest(sub_req) = &packet.data {
+                            self.update_topics(&sub_req);
+                        } else {
+                            self.client.borrow_mut().client_to_router.push(packet);
+                        }
+                        
                     }
                     Err(e) => {
                         self.stats.decode_error_count += 1;

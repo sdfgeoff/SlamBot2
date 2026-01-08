@@ -12,9 +12,9 @@ impl Log {
     pub fn new(log_all: bool) -> Log {
         let client = Rc::new(RefCell::new(Client::<PacketFormat<PacketData>>::default()));
         if log_all {
-            client.borrow_mut().subscriptions.push("all".to_string());
+            client.borrow_mut().subscriptions.insert("all".to_string());
         } else {
-            client.borrow_mut().subscriptions.push(
+            client.borrow_mut().subscriptions.insert(
                 topics::PacketData::DiagnosticMsg(topics::DiagnosticMsg {
                     level: DiagnosticStatus::Ok,
                     name: "".try_into().expect("Arge"),

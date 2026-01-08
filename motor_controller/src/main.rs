@@ -6,6 +6,7 @@
     holding buffers for the duration of a data transfer."
 )]
 
+use core::f32::consts::PI;
 use core::str::FromStr;
 
 use esp_hal::gpio::DriveMode;
@@ -14,6 +15,7 @@ use esp_hal::ledc::timer::TimerIFace;
 use esp_hal::ledc::{LSGlobalClkSource, Ledc, LowSpeed, channel, timer};
 use esp_hal::main;
 use esp_hal::time::{Duration, Instant, Rate};
+use libm::{sinf, cosf};
 
 use esp_hal::gpio::{Input, InputConfig, Io, Level, Output, OutputConfig};
 
@@ -153,7 +155,29 @@ fn main() -> ! {
 
     let mut packet_send_errors: u32 = 0;
 
+    let mut odometryTracker = OdometryDelta { 
+        start_time: clock.get_time(), 
+        end_time: clock.get_time(), 
+        delta_position: [0.0, 0.0], 
+        delta_orientation: 0.0, 
+    };
+
+
     loop {
+        let (left_count, right_count) = critical_section::with(|cs| {
+            if let Some(encoders) = ENCODER_STATE.borrow(cs).borrow_mut().as_mut() {
+                let left = encoders.left.count;
+                let right = encoders.right.count;
+                encoders.left.count = 0;
+                encoders.right.count = 0;
+                (left, right)
+            } else {
+                (0, 0)
+            }
+        });
+        update_odometry(&mut odometryTracker, left_count, right_count);
+
+
         let loop_start_time = Instant::now();
         if lastClockSyncTime.elapsed() >= Duration::from_secs(1) {
             host_connection
@@ -165,34 +189,19 @@ fn main() -> ! {
             led.toggle();
         }
         if lastEncoderSendTime.elapsed() >= Duration::from_millis(100) {
-            let (left_count, right_count) = critical_section::with(|cs| {
-                if let Some(encoders) = ENCODER_STATE.borrow(cs).borrow_mut().as_mut() {
-                    let left = encoders.left.count;
-                    let right = encoders.right.count;
-                    (left, right)
-                } else {
-                    (0, 0)
-                }
-            });
-
-            let mut values: Vec<DiagnosticKeyValue, 8> = Vec::new();
-            values.push(diag_value("left", &left_count)).ok();
-            values.push(diag_value("right", &right_count)).ok();
-
+            odometryTracker.end_time = clock.get_time();
             host_connection
                 .send_packet(
                     &clock,
-                    PacketData::DiagnosticMsg(DiagnosticMsg {
-                        level: DiagnosticStatus::Ok,
-                        name: String::from_str("encoder_counts").unwrap(),
-                        message: String::from_str("").unwrap(),
-                        values,
-                    }),
+                    PacketData::OdometryDelta(odometryTracker.clone()),
                     None,
                 )
                 .unwrap_or_else(|_e| {
                     packet_send_errors = packet_send_errors.wrapping_add(1);
                 });
+            odometryTracker.start_time = odometryTracker.end_time.clone();
+            odometryTracker.delta_position = [0.0, 0.0];
+            odometryTracker.delta_orientation = 0.0;
 
             lastEncoderSendTime = loop_start_time;
         }
@@ -234,4 +243,22 @@ fn diag_value(key: &str, value: &impl core::fmt::Display) -> topics::DiagnosticK
         key: String::from_str(key).unwrap(),
         value: format!("{}", value).unwrap(),
     }
+}
+
+
+
+const WHEEL_CIRCUMFERENCE: f32 = PI * 2.0 * 0.02; // meters
+const WHEEL_BASE_WIDTH: f32 = 0.2; // meters
+const ENCODER_TICKS_PER_REVOLUTION: f32 = 11.0 * 4.0 * 35.0; // encoder * quadrature * gearbox
+
+
+fn update_odometry(odometry: &mut OdometryDelta, left_count: i64, right_count: i64) {
+    let left_distance = -left_count as f32 * WHEEL_CIRCUMFERENCE / ENCODER_TICKS_PER_REVOLUTION;
+    let right_distance = right_count as f32 * WHEEL_CIRCUMFERENCE / ENCODER_TICKS_PER_REVOLUTION;
+    let delta_distance = (left_distance + right_distance) / 2.0;
+    let delta_theta = (right_distance - left_distance) / WHEEL_BASE_WIDTH;
+
+    odometry.delta_position[0] += delta_distance * cosf(odometry.delta_orientation);
+    odometry.delta_position[1] += delta_distance * sinf(odometry.delta_orientation);
+    odometry.delta_orientation += delta_theta;
 }

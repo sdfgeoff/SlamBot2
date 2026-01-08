@@ -23,11 +23,28 @@ pub struct ClockResponse {
     pub recieved_time: u64,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SubscriptionRequest {
+    pub topics: heapless::Vec<heapless::String<32>, 8>,
+}
+
+
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct OdometryDelta {
+    pub start_time: u64,
+    pub end_time: u64,
+    pub delta_position: [f32; 2],
+    pub delta_orientation: f32,
+}
+
 
 packet_data_enum!(
     ClockRequest,
     ClockResponse,
     DiagnosticMsg,
+    OdometryDelta,
+    SubscriptionRequest
 );
 
 

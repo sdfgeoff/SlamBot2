@@ -23,8 +23,8 @@ fn main() {
         .set_timeout(Duration::from_millis(1))
         .expect("Failed to set timeout");
 
-    let mut serial_client = SerialClient::<PacketFormat<PacketData>, _>::new(serialport);
-    let mut log_client = Log::new(false);
+    let mut serial_client = SerialClient::new(serialport);
+    let mut log_client = Log::new(true);
     router.register_client(Rc::downgrade(&serial_client.client));
     router.register_client(Rc::downgrade(&log_client.client));
 

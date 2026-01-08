@@ -4,7 +4,9 @@ use topics::{
     DiagnosticMsg,
     ClockRequest,
     ClockResponse,
-    PacketDataTrait
+    PacketDataTrait,
+    OdometryDelta,
+    SubscriptionRequest,
 };
 
 
@@ -12,4 +14,6 @@ packet_data_enum! {
     ClockRequest,
     ClockResponse,
     DiagnosticMsg,
+    OdometryDelta,
+    SubscriptionRequest,
 }

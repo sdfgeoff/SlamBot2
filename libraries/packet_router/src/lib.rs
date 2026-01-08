@@ -107,6 +107,7 @@ impl<T: PacketTrait> Router<T> {
 mod tests {
     use super::*;
     use std::cell::RefCell;
+    use std::collections::HashSet;
     use std::rc::Rc;
 
     #[derive(Clone, Debug, PartialEq)]
@@ -152,12 +153,12 @@ mod tests {
             Client {
                 client_to_router: Vec::new(),
                 router_to_client: Vec::new(),
-                subscriptions: Vec::new(),
+                subscriptions: HashSet::new(),
             }
         }
 
         fn subscribe(&mut self, topic: String) {
-            self.subscriptions.push(topic);
+            self.subscriptions.insert(topic);
         }
 
         fn send_packet(&mut self, packet: T) {

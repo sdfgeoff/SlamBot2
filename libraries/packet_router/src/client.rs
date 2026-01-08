@@ -1,10 +1,11 @@
 use packet_trait::PacketTrait;
 use std::rc::Rc;
+use std::collections::HashSet;
 
 pub struct Client<T: PacketTrait> {
     pub client_to_router: Vec<T>,
     pub router_to_client: Vec<Rc<T>>,
-    pub subscriptions: Vec<String>,
+    pub subscriptions: HashSet<String>,
 }
 
 impl<T: PacketTrait> Default for Client<T> {
@@ -12,7 +13,7 @@ impl<T: PacketTrait> Default for Client<T> {
         Client::<T> {
             client_to_router: Vec::new(),
             router_to_client: Vec::new(),
-            subscriptions: Vec::new(),
+            subscriptions: HashSet::new(),
         }
     }
 }
@@ -31,7 +32,7 @@ impl<T: PacketTrait> Client<T> {
     pub fn write_router_to_client(&mut self, packets: Vec<Rc<T>>) {
         self.router_to_client.extend(packets);
     }
-    pub fn get_subscriptions(&self) -> &Vec<String> {
+    pub fn get_subscriptions(&self) -> &HashSet<String> {
         &self.subscriptions
     }
 }
