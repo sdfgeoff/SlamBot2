@@ -2,15 +2,15 @@ use heapless::Vec;
 use packet_router::Client;
 use std::cell::RefCell;
 use std::rc::Rc;
-use topics::{DiagnosticStatus, PacketFormat};
+use topics::{DiagnosticStatus, PacketFormat, PacketData, PacketDataTrait};
 
 pub struct Log {
-    pub client: Rc<RefCell<Client<PacketFormat>>>,
+    pub client: Rc<RefCell<Client<PacketFormat<PacketData>>>>,
 }
 
 impl Log {
     pub fn new(log_all: bool) -> Log {
-        let client = Rc::new(RefCell::new(Client::<PacketFormat>::default()));
+        let client = Rc::new(RefCell::new(Client::<PacketFormat<PacketData>>::default()));
         if log_all {
             client.borrow_mut().subscriptions.push("all".to_string());
         } else {

@@ -1,5 +1,6 @@
 use esp_hal::time::Instant;
-use topics::{ClockRequest, ClockResponse, PacketData};
+use topics::{ClockRequest, ClockResponse};
+use crate::packet_data::PacketData;
 
 pub struct Clock {
     pub offset: Option<u64>,

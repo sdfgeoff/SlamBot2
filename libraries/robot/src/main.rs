@@ -9,11 +9,11 @@ use nodes::clock::{Clock, get_current_time};
 use nodes::log::Log;
 use nodes::serial_client::SerialClient;
 
-use topics::PacketFormat;
+use topics::{PacketFormat, PacketData};
 
 fn main() {
     println!("Hello, world!");
-    let mut router = packet_router::Router::<PacketFormat>::new();
+    let mut router = packet_router::Router::<PacketFormat<PacketData>>::new();
 
     //let device_path = "/dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_98:3D:AE:52:AD:78-if00";
     let device_path =
@@ -23,7 +23,7 @@ fn main() {
         .set_timeout(Duration::from_millis(1))
         .expect("Failed to set timeout");
 
-    let mut serial_client = SerialClient::<PacketFormat, _>::new(serialport);
+    let mut serial_client = SerialClient::<PacketFormat<PacketData>, _>::new(serialport);
     let mut log_client = Log::new(false);
     router.register_client(Rc::downgrade(&serial_client.client));
     router.register_client(Rc::downgrade(&log_client.client));

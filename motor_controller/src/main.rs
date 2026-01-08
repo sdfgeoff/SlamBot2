@@ -35,6 +35,9 @@ use encoders::{ENCODER_STATE, Encoder, Encoders};
 mod motor_controller;
 use motor_controller::{MotorControllers, MotorDriver};
 
+mod packet_data;
+use packet_data::PacketData;
+
 #[main]
 fn main() -> ! {
     let peripherals = esp_hal::init(esp_hal::Config::default());
@@ -45,7 +48,7 @@ fn main() -> ! {
 
     let mut host_connection = HostConnection::new(NonBlockingJtagUart::new(
         peripherals.USB_DEVICE,
-        Duration::from_millis(2),
+        Duration::from_millis(10),
     ));
 
     let mut led = Output::new(peripherals.GPIO8, Level::High, OutputConfig::default());

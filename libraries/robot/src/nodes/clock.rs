@@ -2,7 +2,7 @@ use chrono::prelude::*;
 use packet_router::Client;
 use std::cell::RefCell;
 use std::rc::Rc;
-use topics::{PacketData, PacketFormat};
+use topics::{PacketData, PacketFormat, PacketDataTrait};
 
 pub fn get_current_time() -> u64 {
     let now: DateTime<Utc> = Utc::now();
@@ -10,12 +10,12 @@ pub fn get_current_time() -> u64 {
 }
 
 pub struct Clock {
-    pub client: Rc<RefCell<Client<PacketFormat>>>,
+    pub client: Rc<RefCell<Client<PacketFormat<PacketData>>>>,
 }
 
 impl Clock {
     pub fn new() -> Clock {
-        let client = Rc::new(RefCell::new(Client::<PacketFormat>::default()));
+        let client = Rc::new(RefCell::new(Client::<PacketFormat<PacketData>>::default()));
 
         let request_topic = PacketData::ClockRequest(topics::ClockRequest { request_time: 0 })
             .topic()
