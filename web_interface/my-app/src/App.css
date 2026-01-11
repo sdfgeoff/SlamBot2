@@ -1,6 +1,6 @@
 #root {
   width: 100%;
-  margin: 0 auto;
+  margin: 0 0;
   padding: 2rem;
   text-align: left;
 }
@@ -34,7 +34,7 @@
 }
 
 .card {
-  padding: 2em;
+  padding: 0.5em;
 }
 
 .log-container {

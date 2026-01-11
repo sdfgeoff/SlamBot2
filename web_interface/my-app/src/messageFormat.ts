@@ -29,5 +29,9 @@ export interface PacketFormat {
             message: string;
             values: DiagnosticKeyValue[];
         }
+    } | {
+        "SubscriptionRequest": {
+            topics: string[];
+        }
     } | { [key: string]: unknown};
 }
