@@ -156,8 +156,10 @@ impl WebsocketClient {
             let encode_sized = &encode_buffer[..encoded_size + 2];
 
             // Send over websocket
-            if let Err(_) = self.websocket.write(tungstenite::Message::Binary(tungstenite::Bytes::copy_from_slice(encode_sized))) {
+            println!("Sending Message");
+            if let Err(_) = self.websocket.send(tungstenite::Message::Binary(tungstenite::Bytes::copy_from_slice(encode_sized))) {
                 self.stats.write_error_count += 1;
+
             } else {
                 self.stats.tx_packets += 1;
                 self.stats.tx_bytes += encode_sized.len() as u32;
