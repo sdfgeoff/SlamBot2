@@ -1,114 +1,38 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useState } from 'react'
 import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
 import './App.css'
-import { decodePacket, encodePacket, framePacket, PacketFinder } from './packetEncoding'
-
-
-
-interface PacketFormat<T> {
-  to: number | null
-  from: number
-  data: T
-  time: bigint
-  id: number
-}
-
-
+import { useWebSocket } from './useWebSocket'
 
 function App() {
   const [count, setCount] = useState(0)
-  const [wsStatus, setWsStatus] = useState<'connecting' | 'open' | 'closed' | 'error'>('connecting')
   const [lastMessage, setLastMessage] = useState<string>('')
   const [outgoingMessage, setOutgoingMessage] = useState('')
-  const socketRef = useRef<WebSocket | null>(null)
-  const packetFinderRef = useRef(new PacketFinder())
 
-  useEffect(() => {
-    const socket = new WebSocket('ws://localhost:9001')
-    socket.binaryType = 'arraybuffer'
-    socketRef.current = socket
-    setWsStatus('connecting')
-
-    const handleOpen = () => setWsStatus('open')
-    const handleClose = () => setWsStatus('closed')
-    const handleError = () => setWsStatus('error')
-    const handleMessage = (event: MessageEvent) => {
-
-      if (typeof event.data === 'string') {
-        setLastMessage(event.data)
-        return
-      }
-      if (event.data instanceof ArrayBuffer) {
-        const bytes = new Uint8Array(event.data)
-        const packets = packetFinderRef.current.pushBytes(bytes)
-        const decodedMessages: unknown[] = []
-        const tryDecode = (packet: Uint8Array) => {
-          try {
-            if (packet.length == 0) return
-            const decoded = decodePacket<PacketFormat<T>>(packet)
-            decodedMessages.push(decoded)
-          } catch (error) {
-            decodedMessages.push('[decode error]')
-            // eslint-disable-next-line no-console
-            console.error(error)
-          }
-        }
-
-        if (packets.length > 0) {
-          packets.forEach(tryDecode)
-        } else if (bytes.length > 0 && bytes[0] !== 0x00) {
-          tryDecode(bytes)
-        }
-
-        if (decodedMessages.length > 0) {
-          setLastMessage(JSON.stringify(decodedMessages[decodedMessages.length - 1], (key, value) =>
-            typeof value === "bigint" ? Number(value) : value,
-          ))
-        } else {
-          setLastMessage('[binary message]')
-        }
-        return
-      }
-
-      setLastMessage('[unknown message type]')
-    }
-
-    socket.addEventListener('open', handleOpen)
-    socket.addEventListener('close', handleClose)
-    socket.addEventListener('error', handleError)
-    socket.addEventListener('message', handleMessage)
-
-    return () => {
-      socket.removeEventListener('open', handleOpen)
-      socket.removeEventListener('close', handleClose)
-      socket.removeEventListener('error', handleError)
-      socket.removeEventListener('message', handleMessage)
-      socket.close()
-      socketRef.current = null
-    }
-  }, [])
-
-  const sendMessage = () => {
-    const socket = socketRef.current
-    if (!socket || socket.readyState !== WebSocket.OPEN) {
-      setWsStatus('error')
-      return
-    }
-    if (!outgoingMessage.trim()) {
+  const handleMessage = useCallback((message: unknown) => {
+    if (typeof message === 'string') {
+      setLastMessage(message)
       return
     }
     try {
-      const encoded = encodePacket(outgoingMessage)
-      const framed = framePacket(encoded)
-      socket.send(framed)
-    } catch (error) {
-      setWsStatus('error')
-      // eslint-disable-next-line no-console
-      console.error(error)
+      setLastMessage(
+        JSON.stringify(message, (_, value) => (typeof value === 'bigint' ? Number(value) : value)),
+      )
+    } catch {
+      setLastMessage('[unserializable message]')
+    }
+  }, [])
+
+  const { send, status: wsStatus } = useWebSocket(handleMessage)
+
+  const sendMessage = () => {
+    if (!outgoingMessage.trim()) {
       return
     }
-    setOutgoingMessage('')
+    const sent = send(outgoingMessage)
+    if (sent) {
+      setOutgoingMessage('')
+    }
   }
 
   return (

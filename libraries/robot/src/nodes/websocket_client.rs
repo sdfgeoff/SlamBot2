@@ -89,6 +89,8 @@ pub struct WebsocketClient {
 
     pub stats: WebsocketClientStats,
     pub stats_send_time: Instant,
+
+    pub is_alive: bool,
 }
 
 
@@ -109,33 +111,45 @@ impl WebsocketClient {
                 write_error_count: 0,
             },
             stats_send_time: Instant::now(),
+            is_alive: true,
         }
     }
 
     pub fn tick(&mut self) {
         // Read from websocket into incoming queue
-        if let Ok(msg) = self.websocket.read() {
-            // We do not want to send back ping/pong messages.
-            if msg.is_binary() {
-                // For simplicity, we just echo the message back.
-                let mut data_raw: Vec<u8> = msg.into_data().to_vec();
-                let data = decode_packet::<PacketFormat<PacketData>>(data_raw.as_mut_slice());
-                match data {
-                    Ok(packet) => {
-                        self.stats.rx_packets += 1;
-                        self.stats.rx_bytes += data_raw.len() as u32;
-                        self.client.borrow_mut().send(packet);
+        match self.websocket.read() {
+            Ok(msg) => {
+                // We do not want to send back ping/pong messages.
+                if msg.is_binary() {
+                    // For simplicity, we just echo the message back.
+                    let mut data_raw: Vec<u8> = msg.into_data().to_vec();
+                    let data = decode_packet::<PacketFormat<PacketData>>(data_raw.as_mut_slice());
+                    match data {
+                        Ok(packet) => {
+                            self.stats.rx_packets += 1;
+                            self.stats.rx_bytes += data_raw.len() as u32;
+                            self.client.borrow_mut().send(packet);
+                        }
+                        Err(_) => {
+                            self.stats.decode_error_count += 1;
+                        }
                     }
-                    Err(_) => {
-                        self.stats.decode_error_count += 1;
+                } else {
+                    // Respond telling client to use binary
+                    let warning_msg = tungstenite::Message::Text("Please send binary messages only.".into());
+                    if let Err(_) = self.websocket.write(warning_msg) {
+                        self.stats.decode_error_count += 1; // Counts as a failed message
                     }
                 }
-            } else {
-                // Respond telling client to use binary
-                let warning_msg = tungstenite::Message::Text("Please send binary messages only.".into());
-                if let Err(_) = self.websocket.write(warning_msg) {
-                    self.stats.decode_error_count += 1; // Counts as a failed message
-                }
+            }
+            Err(tungstenite::Error::ConnectionClosed) => {
+                self.is_alive = false;
+            }
+            Err(tungstenite::Error::AlreadyClosed) => {
+                self.is_alive = false;
+            }
+            _ => {
+                // No data to read
             }
         }
 
@@ -156,8 +170,16 @@ impl WebsocketClient {
             let encode_sized = &encode_buffer[..encoded_size + 2];
 
             // Send over websocket
-            println!("Sending Message");
-            if let Err(_) = self.websocket.send(tungstenite::Message::Binary(tungstenite::Bytes::copy_from_slice(encode_sized))) {
+            if let Err(err) = self.websocket.send(tungstenite::Message::Binary(tungstenite::Bytes::copy_from_slice(encode_sized))) {
+                match err {
+                    tungstenite::Error::ConnectionClosed => {
+                        self.is_alive = false;
+                    }
+                    tungstenite::Error::AlreadyClosed => {
+                        self.is_alive = false;
+                    }
+                    _ => {}
+                }
                 self.stats.write_error_count += 1;
 
             } else {
@@ -227,6 +249,7 @@ impl WebsocketAcceptor {
             client.tick();
         }
 
-
+        // Remove dead clients
+        self.clients_by_ip.retain(|_ip, client| client.is_alive);
     }
 }
