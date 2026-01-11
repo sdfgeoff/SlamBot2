@@ -3,20 +3,38 @@ import { decodePacket, encodePacket, framePacket, PacketFinder } from './packetE
 
 type WebSocketStatus = 'connecting' | 'open' | 'closed' | 'error'
 
-export const useWebSocket = (onMessage: (message: unknown) => void) => {
+const defaultUrl = () => `ws://${window.location.hostname}:9001`
+const RETRY_INTERVAL_MS = 10000
+
+export const useWebSocket = (
+  onMessage: (message: unknown) => void,
+  url = defaultUrl(),
+) => {
   const [status, setStatus] = useState<WebSocketStatus>('connecting')
   const socketRef = useRef<WebSocket | null>(null)
   const packetFinderRef = useRef(new PacketFinder())
+  const reconnectTimerRef = useRef<number | null>(null)
 
   useEffect(() => {
-    const socket = new WebSocket('ws://localhost:9001')
-    socket.binaryType = 'arraybuffer'
-    socketRef.current = socket
-    setStatus('connecting')
+    let isClosed = false
 
-    const handleOpen = () => setStatus('open')
-    const handleClose = () => setStatus('closed')
-    const handleError = () => setStatus('error')
+    const clearReconnectTimer = () => {
+      if (reconnectTimerRef.current !== null) {
+        window.clearTimeout(reconnectTimerRef.current)
+        reconnectTimerRef.current = null
+      }
+    }
+
+    const scheduleReconnect = () => {
+      if (isClosed || reconnectTimerRef.current !== null) {
+        return
+      }
+      reconnectTimerRef.current = window.setTimeout(() => {
+        reconnectTimerRef.current = null
+        connect()
+      }, RETRY_INTERVAL_MS)
+    }
+
     const handleMessage = (event: MessageEvent) => {
       if (typeof event.data === 'string') {
         onMessage(event.data)
@@ -29,6 +47,9 @@ export const useWebSocket = (onMessage: (message: unknown) => void) => {
         const decodedMessages: unknown[] = []
 
         const tryDecode = (packet: Uint8Array) => {
+          if (packet.length === 0) {
+            return
+          }
           try {
             decodedMessages.push(decodePacket<unknown>(packet))
           } catch (error) {
@@ -39,9 +60,8 @@ export const useWebSocket = (onMessage: (message: unknown) => void) => {
 
         if (packets.length > 0) {
           packets.forEach(tryDecode)
-        } else if (bytes.length > 0 && bytes[0] !== 0x00) {
-          tryDecode(bytes)
         }
+
 
         if (decodedMessages.length > 0) {
           onMessage(decodedMessages[decodedMessages.length - 1])
@@ -50,20 +70,44 @@ export const useWebSocket = (onMessage: (message: unknown) => void) => {
       }
     }
 
-    socket.addEventListener('open', handleOpen)
-    socket.addEventListener('close', handleClose)
-    socket.addEventListener('error', handleError)
-    socket.addEventListener('message', handleMessage)
+    const connect = () => {
+      clearReconnectTimer()
+      setStatus('connecting')
+      const socket = new WebSocket(url)
+      socket.binaryType = 'arraybuffer'
+      socketRef.current = socket
+
+      const handleOpen = () => {
+        clearReconnectTimer()
+        setStatus('open')
+      }
+      const handleClose = () => {
+        setStatus('closed')
+        scheduleReconnect()
+      }
+      const handleError = () => {
+        setStatus('error')
+        scheduleReconnect()
+      }
+
+      socket.addEventListener('open', handleOpen)
+      socket.addEventListener('close', handleClose)
+      socket.addEventListener('error', handleError)
+      socket.addEventListener('message', handleMessage)
+    }
+
+    connect()
 
     return () => {
-      socket.removeEventListener('open', handleOpen)
-      socket.removeEventListener('close', handleClose)
-      socket.removeEventListener('error', handleError)
-      socket.removeEventListener('message', handleMessage)
-      socket.close()
+      isClosed = true
+      clearReconnectTimer()
+      const socket = socketRef.current
+      if (socket) {
+        socket.close()
+      }
       socketRef.current = null
     }
-  }, [onMessage])
+  }, [onMessage, url])
 
   const send = (message: unknown): boolean => {
     const socket = socketRef.current
