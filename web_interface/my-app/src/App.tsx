@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { DiagnosticStatus, type PacketFormat } from './messageFormat'
 import { useWebSocket } from './useWebSocket'
@@ -14,6 +14,8 @@ function App() {
   const [filterTo, setFilterTo] = useState('')
   const [filterFrom, setFilterFrom] = useState('')
   const [filterDataKey, setFilterDataKey] = useState('')
+  const logContainerRef = useRef<HTMLDivElement | null>(null)
+  const shouldAutoScrollRef = useRef(true)
 
   const handleMessage = useCallback((message: unknown) => {
     const packet = message as PacketFormat
@@ -94,6 +96,26 @@ function App() {
     })
   }, [packets, filterTo, filterFrom, filterDataKey])
 
+  useEffect(() => {
+    if (!shouldAutoScrollRef.current) {
+      return
+    }
+    const container = logContainerRef.current
+    if (container) {
+      container.scrollTop = container.scrollHeight
+    }
+  }, [filteredPackets.length])
+
+  const handleLogScroll = () => {
+    const container = logContainerRef.current
+    if (!container) {
+      return
+    }
+    const threshold = 100
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight
+    shouldAutoScrollRef.current = distanceFromBottom <= threshold
+  }
+
   return (
     <>
       <div className="card">
@@ -155,7 +177,7 @@ function App() {
       </div>
       <div className="card">
         <p>Log</p>
-        <div className="log-container">
+        <div className="log-container" ref={logContainerRef} onScroll={handleLogScroll}>
           <table className="log-table">
             <thead>
               <tr>
@@ -164,14 +186,14 @@ function App() {
                 <th>To</th>
                 <th>From</th>
                 <th>Type</th>
-                <th>Summary</th>
+                <th className="summary-cell">Summary</th>
               </tr>
             </thead>
             <tbody>
               {filteredPackets.map(({ arrivalIndex, packet }) => (
                 <tr key={arrivalIndex}>
                   <td>{arrivalIndex}</td>
-                  <td>{formatTime(packet.time)}</td>
+                  <td className="time-cell">{formatTime(packet.time)}</td>
                   <td>{formatEndpoint(packet.to)}</td>
                   <td>{formatEndpoint(packet.from)}</td>
                   <td>{getDataRootKey(packet) || 'Unknown'}</td>
