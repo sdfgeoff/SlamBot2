@@ -29,5 +29,5 @@ export interface PacketFormat {
             message: string;
             values: DiagnosticKeyValue[];
         }
-    } | Record<string, unknown>;
+    } | { [key: string]: unknown};
 }

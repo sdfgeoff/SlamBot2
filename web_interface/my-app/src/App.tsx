@@ -9,7 +9,6 @@ type PacketEntry = {
 }
 
 function App() {
-  const [lastMessage, setLastMessage] = useState<string>('')
   const [outgoingMessage, setOutgoingMessage] = useState('')
   const [packets, setPackets] = useState<PacketEntry[]>([])
   const [filterTo, setFilterTo] = useState('')
@@ -17,26 +16,13 @@ function App() {
   const [filterDataKey, setFilterDataKey] = useState('')
 
   const handleMessage = useCallback((message: unknown) => {
-    if (typeof message === 'string') {
-      setLastMessage(message)
-      return
-    }
     const packet = message as PacketFormat
     if (packet && typeof packet === 'object' && 'data' in packet && 'time' in packet) {
       setPackets((prev) => [
         ...prev,
         { arrivalIndex: prev.length + 1, packet },
       ])
-      const summary = summarizePacket(packet)
-      setLastMessage(summary)
       return
-    }
-    try {
-      setLastMessage(
-        JSON.stringify(message, (_, value) => (typeof value === 'bigint' ? Number(value) : value)),
-      )
-    } catch {
-      setLastMessage('[unserializable message]')
     }
   }, [])
 
@@ -61,6 +47,21 @@ function App() {
       }
     })
     return Array.from(keys).sort()
+  }, [packets])
+
+  const nodeOptions = useMemo(() => {
+    const nodes = new Set<number | null>()
+    packets.forEach(({ packet }) => {
+      nodes.add(packet.to)
+      nodes.add(packet.from)
+    })
+    const sorted = Array.from(nodes).sort((a, b) => {
+      if (a === null && b === null) return 0
+      if (a === null) return -1
+      if (b === null) return 1
+      return a - b
+    })
+    return sorted.map((node) => (node === null ? 'null' : String(node)))
   }, [packets])
 
   const filteredPackets = useMemo(() => {
@@ -99,9 +100,6 @@ function App() {
         <p>
           WebSocket: <strong>{wsStatus}</strong>
         </p>
-        <p>
-          Last message: <code>{lastMessage || '—'}</code>
-        </p>
         <div>
           <input
             type="text"
@@ -117,18 +115,22 @@ function App() {
       <div className="card">
         <p>Filters</p>
         <div>
-          <input
-            type="text"
-            value={filterTo}
-            onChange={(event) => setFilterTo(event.target.value)}
-            placeholder="Filter to (number or null)"
-          />
-          <input
-            type="text"
-            value={filterFrom}
-            onChange={(event) => setFilterFrom(event.target.value)}
-            placeholder="Filter from (number or null)"
-          />
+          <select value={filterTo} onChange={(event) => setFilterTo(event.target.value)}>
+            <option value="">All to</option>
+            {nodeOptions.map((node) => (
+              <option key={`to-${node}`} value={node}>
+                {node}
+              </option>
+            ))}
+          </select>
+          <select value={filterFrom} onChange={(event) => setFilterFrom(event.target.value)}>
+            <option value="">All from</option>
+            {nodeOptions.map((node) => (
+              <option key={`from-${node}`} value={node}>
+                {node}
+              </option>
+            ))}
+          </select>
           <select
             value={filterDataKey}
             onChange={(event) => setFilterDataKey(event.target.value)}
@@ -153,32 +155,32 @@ function App() {
       </div>
       <div className="card">
         <p>Log</p>
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Time (UTC)</th>
-              <th>Time (µs)</th>
-              <th>To</th>
-              <th>From</th>
-              <th>Type</th>
-              <th>Summary</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredPackets.map(({ arrivalIndex, packet }) => (
-              <tr key={arrivalIndex}>
-                <td>{arrivalIndex}</td>
-                <td>{formatTime(packet.time)}</td>
-                <td>{packet.time.toString()}</td>
-                <td>{formatEndpoint(packet.to)}</td>
-                <td>{formatEndpoint(packet.from)}</td>
-                <td>{getDataRootKey(packet) || 'Unknown'}</td>
-                <td>{summarizePacket(packet)}</td>
+        <div className="log-container">
+          <table className="log-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Time (UTC)</th>
+                <th>To</th>
+                <th>From</th>
+                <th>Type</th>
+                <th>Summary</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filteredPackets.map(({ arrivalIndex, packet }) => (
+                <tr key={arrivalIndex}>
+                  <td>{arrivalIndex}</td>
+                  <td>{formatTime(packet.time)}</td>
+                  <td>{formatEndpoint(packet.to)}</td>
+                  <td>{formatEndpoint(packet.from)}</td>
+                  <td>{getDataRootKey(packet) || 'Unknown'}</td>
+                  <td className="summary-cell">{summarizePacket(packet)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </>
   )
@@ -211,15 +213,8 @@ const summarizePacket = (packet: PacketFormat) => {
     } }).DiagnosticMsg
     return `${diagnostic.name}: ${diagnostic.message} (level ${diagnostic.level})`
   }
-  if (dataKey === 'OdometryDelta') {
-    const odometry = (packet.data as { OdometryDelta: {
-      delta_position: [number, number]
-      delta_orientation: number
-    } }).OdometryDelta
-    return `dx=${odometry.delta_position[0]} dy=${odometry.delta_position[1]} dθ=${odometry.delta_orientation}`
-  }
   try {
-    return JSON.stringify(packet.data, (_, value) => (typeof value === 'bigint' ? Number(value) : value))
+    return JSON.stringify(packet.data[dataKey], (_, value) => (typeof value === 'bigint' ? Number(value) : value))
   } catch {
     return '[unserializable]'
   }
