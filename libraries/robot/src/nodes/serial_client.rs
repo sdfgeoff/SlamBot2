@@ -3,9 +3,15 @@ use packet_router::Client;
 use serde::Serialize;
 use serial::SerialPort;
 use std::rc::Rc;
+use std::time::{Duration, Instant};
 use std::{cell::RefCell, collections::HashSet};
 
-use topics::{PacketData, PacketFormat, SubscriptionRequest};
+use topics::{DiagnosticMsg, PacketData, PacketFormat, SubscriptionRequest};
+
+use heapless::{String as HString, format as hformat};
+use std::str::FromStr;
+
+use crate::nodes::clock::get_current_time;
 
 #[derive(Serialize)]
 pub struct SerialClientStats {
@@ -18,11 +24,69 @@ pub struct SerialClientStats {
     pub write_error_count: u32,
 }
 
+impl SerialClientStats {
+    fn to_log(&self) -> DiagnosticMsg {
+        let mut values = heapless::Vec::<topics::DiagnosticKeyValue, 8>::new();
+        values
+            .push(topics::DiagnosticKeyValue {
+                key: HString::from_str("decode_errors").unwrap(),
+                value: hformat!("{}", self.decode_error_count).unwrap(),
+            })
+            .ok();
+        values
+            .push(topics::DiagnosticKeyValue {
+                key: HString::from_str("tx_packets").unwrap(),
+                value: hformat!("{}", self.tx_packets).unwrap(),
+            })
+            .ok();
+        values
+            .push(topics::DiagnosticKeyValue {
+                key: HString::from_str("tx_bytes").unwrap(),
+                value: hformat!("{}", self.tx_bytes).unwrap(),
+            })
+            .ok();
+        values
+            .push(topics::DiagnosticKeyValue {
+                key: HString::from_str("rx_packets").unwrap(),
+                value: hformat!("{}", self.rx_packets).unwrap(),
+            })
+            .ok();
+        values
+            .push(topics::DiagnosticKeyValue {
+                key: HString::from_str("rx_bytes").unwrap(),
+                value: hformat!("{}", self.rx_bytes).unwrap(),
+            })
+            .ok();
+        values
+            .push(topics::DiagnosticKeyValue {
+                key: HString::from_str("encode_errors").unwrap(),
+                value: hformat!("{}", self.encode_error_count).unwrap(),
+            })
+            .ok();
+        values
+            .push(topics::DiagnosticKeyValue {
+                key: HString::from_str("write_errors").unwrap(),
+                value: hformat!("{}", self.write_error_count).unwrap(),
+            })
+            .ok();
+
+        DiagnosticMsg {
+            level: topics::DiagnosticStatus::Ok,
+            name: HString::from_str("serial_stats").unwrap(),
+            message: HString::from_str("").unwrap(),
+            values,
+        }
+    }
+}
+
+
 pub struct SerialClient<V: SerialPort> {
     serialport: V,
     pub client: Rc<RefCell<Client<PacketFormat<PacketData>>>>,
     packet_finder: PacketFinder,
+
     pub stats: SerialClientStats,
+    pub stats_send_time: Instant,
 }
 
 impl<V: SerialPort> SerialClient<V> {
@@ -40,6 +104,7 @@ impl<V: SerialPort> SerialClient<V> {
                 encode_error_count: 0,
                 write_error_count: 0,
             },
+            stats_send_time: Instant::now(),
         }
     }
 
@@ -107,6 +172,25 @@ impl<V: SerialPort> SerialClient<V> {
                     println!("Failed to encode packet: {:?}", e);
                 }
             }
+        }
+    }
+
+    pub fn tick(&mut self) {
+        self.read();
+        self.write();
+        if self.stats_send_time.elapsed() >= Duration::from_secs(1) {
+            let diag_msg: DiagnosticMsg = self.stats.to_log();
+            self.client
+                .borrow_mut()
+                .client_to_router
+                .push(PacketFormat {
+                    to: None,
+                    from: None,
+                    data: PacketData::DiagnosticMsg(diag_msg),
+                    time: get_current_time(),
+                    id: 0,
+                });
+            self.stats_send_time = Instant::now();
         }
     }
 }
