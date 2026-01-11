@@ -6,6 +6,14 @@ import { decodePacket, encodePacket, framePacket, PacketFinder } from './packetE
 
 
 
+interface PacketFormat<T> {
+  to: number | null
+  from: number
+  data: T
+  time: bigint
+  id: number
+}
+
 
 
 function App() {
@@ -38,7 +46,7 @@ function App() {
         const tryDecode = (packet: Uint8Array) => {
           try {
             if (packet.length == 0) return
-            const decoded = decodePacket<unknown>(packet)
+            const decoded = decodePacket<PacketFormat<T>>(packet)
             decodedMessages.push(decoded)
           } catch (error) {
             decodedMessages.push('[decode error]')
