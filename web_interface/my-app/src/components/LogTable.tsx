@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { PacketEntry } from '../logTypes'
 import { formatEndpoint, formatTime, getDataRootKey, summarizePacket } from '../logUtils'
 
@@ -9,6 +9,19 @@ type LogTableProps = {
 const LogTable = ({ packets }: LogTableProps) => {
   const logContainerRef = useRef<HTMLDivElement | null>(null)
   const shouldAutoScrollRef = useRef(true)
+  const [selectedPacket, setSelectedPacket] = useState<PacketEntry | null>(null)
+  const jsonReplacer = (_key: string, value: unknown) =>
+    typeof value === 'bigint' ? value.toString() : value
+  const formattedPacket = selectedPacket
+    ? JSON.stringify(
+        {
+          arrivalIndex: selectedPacket.arrivalIndex,
+          packet: selectedPacket.packet,
+        },
+        jsonReplacer,
+        2
+      )
+    : ''
 
   useEffect(() => {
     if (!shouldAutoScrollRef.current) {
@@ -37,17 +50,20 @@ const LogTable = ({ packets }: LogTableProps) => {
         <table className="log-table">
           <thead>
             <tr>
-              <th>#</th>
-              <th>Time (UTC)</th>
-              <th>To</th>
-              <th>From</th>
+              <th className="compact-cell">#</th>
+              <th className="time-cell">Time (UTC)</th>
+              <th className="compact-cell">To</th>
+              <th className="compact-cell">From</th>
               <th>Type</th>
               <th className="summary-cell">Summary</th>
             </tr>
           </thead>
           <tbody>
             {packets.map(({ arrivalIndex, packet }) => (
-              <tr key={arrivalIndex}>
+              <tr
+                key={arrivalIndex}
+                onClick={() => setSelectedPacket({ arrivalIndex, packet })}
+              >
                 <td className="compact-cell">{arrivalIndex}</td>
                 <td className="time-cell">{formatTime(packet.time)}</td>
                 <td className="compact-cell">{formatEndpoint(packet.to)}</td>
@@ -59,6 +75,12 @@ const LogTable = ({ packets }: LogTableProps) => {
           </tbody>
         </table>
       </div>
+      {selectedPacket ? (
+        <div className="log-detail">
+          <p>Selected packet</p>
+          <pre>{formattedPacket}</pre>
+        </div>
+      ) : null}
     </div>
   )
 }

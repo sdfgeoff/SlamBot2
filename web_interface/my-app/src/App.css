@@ -1,7 +1,5 @@
 #root {
   width: 100%;
-  margin: 0 0;
-  padding: 2rem;
   text-align: left;
 }
 
@@ -34,37 +32,118 @@
 }
 
 .card {
-  padding: 0.5em;
+  margin-bottom: 1.5rem;
+  padding: 1.25rem 1.5rem;
+  border-radius: var(--radius);
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--shadow);
+  animation: card-rise 0.6s ease both;
 }
 
 .log-container {
   max-height: 480px;
   overflow-y: auto;
+  overflow-x: hidden;
   width: 100%;
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 12px;
+  background: #ffffff;
 }
 
 .log-table {
   border-collapse: collapse;
   overflow: hidden;
+  width: 100%;
+  table-layout: fixed;
+  font-size: 0.95rem;
 }
 
 .log-table th,
 .log-table td {
   text-align: left;
   padding: 0.5rem;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+  overflow: hidden;
 }
 
+.compact-cell {
+  width: 6rem;
+}
 
 .time-cell {
+  width: 9rem;
   font-size: 0.85rem;
 }
 
+.log-table th:nth-child(5),
+.log-table td:nth-child(5) {
+  width: 8rem;
+}
+
+.log-table thead th {
+  font-family: "Space Grotesk", "Public Sans", system-ui, sans-serif;
+  color: var(--accent-strong);
+  background: rgba(15, 118, 110, 0.08);
+}
+
+.log-table tbody tr {
+  transition: background-color 0.2s ease;
+  cursor: pointer;
+}
+
+.log-table tbody tr:hover {
+  background-color: rgba(15, 118, 110, 0.08);
+}
+
 .summary-cell {
-  font-family: "Courier New", Courier, monospace;
+  font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.filters-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.card p {
+  margin: 0 0 0.75rem;
+  font-family: "Space Grotesk", "Public Sans", system-ui, sans-serif;
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+}
+
+.card strong {
+  color: var(--accent-strong);
+}
+
+.log-detail {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.log-detail pre {
+  margin: 0;
+  white-space: pre;
+  overflow-x: auto;
+  font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.85rem;
+}
+
+@keyframes card-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

@@ -1,7 +1,7 @@
 use packet_encoding::{PacketFinder, decode_packet, encode_packet};
 use packet_router::Client;
 use serde::Serialize;
-use serial::SerialPort;
+use serialport::SerialPort;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 use std::{cell::RefCell, collections::HashSet};
@@ -80,17 +80,18 @@ impl SerialClientStats {
 }
 
 
-pub struct SerialClient<V: SerialPort> {
-    serialport: V,
+pub struct SerialClient {
+    serialport: Box<dyn SerialPort>,
     pub client: Rc<RefCell<Client<PacketFormat<PacketData>>>>,
     packet_finder: PacketFinder,
 
     pub stats: SerialClientStats,
     pub stats_send_time: Instant,
+    pub is_alive: bool,
 }
 
-impl<V: SerialPort> SerialClient<V> {
-    pub fn new(serialport: V) -> Self {
+impl SerialClient {
+    pub fn new(serialport: Box<dyn SerialPort>) -> Self {
         SerialClient {
             serialport,
             client: Rc::new(RefCell::new(Client::default())),
@@ -105,6 +106,7 @@ impl<V: SerialPort> SerialClient<V> {
                 write_error_count: 0,
             },
             stats_send_time: Instant::now(),
+            is_alive: true,
         }
     }
 
@@ -122,28 +124,42 @@ impl<V: SerialPort> SerialClient<V> {
     pub fn read(&mut self) {
         // Read from serial port into incoming queue
         let mut mini_buffer: [u8; 256] = [0u8; 256];
-        let read_bytes = self.serialport.read(&mut mini_buffer).unwrap_or(0);
-        for byte in mini_buffer.iter().take(read_bytes) {
-            if let Some(packet) = self.packet_finder.push_byte(*byte)
-                && !packet.is_empty()
-            {
-                self.stats.rx_packets += 1;
-                self.stats.rx_bytes += packet.len() as u32;
+        match self.serialport.read(&mut mini_buffer) {
+            Ok(read_bytes) => {
+                for byte in mini_buffer.iter().take(read_bytes) {
+                    if let Some(packet) = self.packet_finder.push_byte(*byte)
+                        && !packet.is_empty()
+                    {
+                        self.stats.rx_packets += 1;
+                        self.stats.rx_bytes += packet.len() as u32;
 
-                let mut packet_data = packet.to_vec();
-                match decode_packet::<PacketFormat<PacketData>>(&mut packet_data) {
-                    Ok(packet) => {
-                        if let PacketData::SubscriptionRequest(sub_req) = &packet.data {
-                            self.update_topics(&sub_req);
-                        } else {
-                            self.client.borrow_mut().client_to_router.push(packet);
+                        let mut packet_data = packet.to_vec();
+                        match decode_packet::<PacketFormat<PacketData>>(&mut packet_data) {
+                            Ok(packet) => {
+                                if let PacketData::SubscriptionRequest(sub_req) = &packet.data {
+                                    self.update_topics(&sub_req);
+                                } else {
+                                    self.client.borrow_mut().client_to_router.push(packet);
+                                }
+                            }
+                            Err(e) => {
+                                self.stats.decode_error_count += 1;
+                                println!("Failed to decode packet: {:?} {:X?}", e, packet_data);
+                            }
                         }
                     }
-                    Err(e) => {
-                        self.stats.decode_error_count += 1;
-                        println!("Failed to decode packet: {:?} {:X?}", e, packet_data);
-                    }
                 }
+            }
+            Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => {
+                // Timeout is expected with non-blocking reads
+            }
+            Err(ref e) if e.kind() == std::io::ErrorKind::BrokenPipe => {
+                // Device disconnected
+                self.is_alive = false;
+            }
+            Err(_) => {
+                // Other errors might indicate disconnection
+                self.is_alive = false;
             }
         }
     }
@@ -164,6 +180,10 @@ impl<V: SerialPort> SerialClient<V> {
                     {
                         self.stats.write_error_count += 1;
                         println!("Failed to write packet: {:?}", e);
+                        // Mark as dead if we can't write
+                        if e.kind() == std::io::ErrorKind::BrokenPipe {
+                            self.is_alive = false;
+                        }
                     }
                     self.stats.tx_bytes += (encoded_size + 2) as u32;
                 }

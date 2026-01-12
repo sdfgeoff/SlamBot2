@@ -5,9 +5,8 @@ use std::cell::RefCell;
 use std::time::Instant;
 use topics::{DiagnosticMsg, PacketData, PacketFormat, SubscriptionRequest};
 use tungstenite::{WebSocket, accept};
-use serde::{Serialize, Deserialize};
+use serde::{Serialize};
 
-use packet_trait::PacketTrait;
 use packet_encoding::decode_packet;
 use packet_router::{Client, Router};
 use heapless::{String as HString, format as hformat};

@@ -23,7 +23,7 @@ const FiltersPanel = ({
 }: FiltersPanelProps) => (
   <div className="card">
     <p>Filters</p>
-    <div>
+    <div className="filters-row">
       <select value={filterTo} onChange={(event) => onFilterToChange(event.target.value)}>
         <option value="">All to</option>
         {nodeOptions.map((node) => (
