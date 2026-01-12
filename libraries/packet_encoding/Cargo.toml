@@ -8,14 +8,16 @@ cobs = { version = "0.5.0", features=[], default-features = false}
 crc16 = "0.4.0"
 heapless = "0.9.2"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
-serde_cbor = { version = "0.11.2", default-features = false }
+minicbor = { version = "0.25", default-features = false }
+minicbor-serde = { version = "0.3", default-features = false }
 
 
 [features]
 std = [
     "cobs/std",
     "serde/std", 
-    "serde_cbor/std"
+    "minicbor/std",
+    "minicbor-serde/std"
 ]
 
 default = ["std"]

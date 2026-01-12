@@ -5,11 +5,10 @@ use cobs::{CobsEncoder, decode_in_place};
 use crc16::{ARC, State};
 use heapless::Vec;
 use serde::{Deserialize, Serialize};
-use serde_cbor::{Serializer, de::from_mut_slice, ser::SliceWrite};
 
 #[derive(Debug)]
 pub enum PacketEncodeErr {
-    SerdeError(serde_cbor::Error),
+    SerdeError(minicbor_serde::error::EncodeError<minicbor::encode::write::EndOfSlice>),
     CobsError,
     DestBufTooSmallError,
 }
@@ -30,33 +29,35 @@ pub fn encode_packet(
     // We can get rid of this by using the various streaming/writer API's. The CBOR will need to feed both the CRC and the COBS encoder simultaneously.
     // We should performance test this!
 
-    let writer = SliceWrite::new(&mut serialize_buffer[..]);
-    let mut ser = Serializer::new(writer);
+    // Use a writer that implements Write
+    let initial_len = serialize_buffer.len();
+    let mut writer = &mut serialize_buffer[..];
+    let mut serializer = minicbor_serde::Serializer::new(&mut writer);
     message
-        .serialize(&mut ser)
+        .serialize(&mut serializer)
         .map_err(PacketEncodeErr::SerdeError)?;
-    let writer = ser.into_inner();
-    let size = writer.bytes_written();
+    // After serialization, writer points to the remaining slice
+    let size = initial_len - writer.len();
     let serialized = &serialize_buffer[..size];
 
     // CRC16
     let crc = State::<ARC>::calculate(serialized);
 
     // COBS
-    let mut encoder = CobsEncoder::new(encode_buffer);
-    encoder
+    let mut cobs_encoder = CobsEncoder::new(encode_buffer);
+    cobs_encoder
         .push(serialized)
         .map_err(|_| PacketEncodeErr::DestBufTooSmallError)?;
-    encoder
+    cobs_encoder
         .push(&crc.to_le_bytes())
         .map_err(|_| PacketEncodeErr::DestBufTooSmallError)?;
-    let encoded_size = encoder.finalize();
+    let encoded_size = cobs_encoder.finalize();
     Ok(encoded_size)
 }
 
 #[derive(Debug)]
 pub enum PacketDecodeErr {
-    SerdeError(serde_cbor::Error),
+    SerdeError(minicbor_serde::error::DecodeError),
     TooSmall,
     CobsError(DecodeError),
     CrcMismatchError,
@@ -78,7 +79,9 @@ pub fn decode_packet<T: for<'a> Deserialize<'a>>(data: &mut [u8]) -> Result<T, P
     }
 
     // CBOR
-    let message: T = from_mut_slice(payload).map_err(PacketDecodeErr::SerdeError)?;
+    let mut deserializer = minicbor_serde::Deserializer::new(payload);
+    let message: T = serde::Deserialize::deserialize(&mut deserializer)
+        .map_err(PacketDecodeErr::SerdeError)?;
     Ok(message)
 }
 

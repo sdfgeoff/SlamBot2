@@ -6,7 +6,7 @@ A `no_std` compatible Rust crate for robust packet encoding and decoding using a
 
 This crate provides reliable packet communication by combining three encoding layers:
 
-1. **CBOR Serialization** - Converts Rust structs to/from compact binary format using `serde_cbor`
+1. **CBOR Serialization** - Converts Rust structs to/from compact binary format using `minicbor-serde`
 2. **CRC16 Checksums** - Adds data integrity verification using ARC polynomial
 3. **COBS Framing** - Provides packet boundary detection with consistent overhead byte stuffing
 
