@@ -6,6 +6,7 @@ import { getDataRootKey } from './logUtils'
 import { useWebSocket } from './useWebSocket'
 import ConnectionPanel from './components/ConnectionPanel'
 import FiltersPanel from './components/FiltersPanel'
+import DiagnosticGraph from './components/DiagnosticGraph'
 import LogTable from './components/LogTable'
 
 function App() {
@@ -132,6 +133,7 @@ function App() {
           setFilterDataKey('')
         }}
       />
+      <DiagnosticGraph packets={filteredPackets} />
       <LogTable packets={filteredPackets} />
     </>
   )
