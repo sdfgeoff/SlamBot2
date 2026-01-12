@@ -136,7 +136,6 @@ impl WebsocketClient {
                     let data_len = data_raw.len();
                     let without_zeros: &mut [u8] = data_raw.as_mut_slice()[1..data_len-1].as_mut();
                     let data = decode_packet::<PacketFormat<PacketData>>(without_zeros);
-                    println!("Decoded websocket packet: {:?}", data);
                     match data {
                         Ok(packet) => {
 
