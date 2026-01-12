@@ -1,9 +1,9 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::net::{TcpListener, TcpStream};
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::time::Instant;
-use topics::{DiagnosticMsg, PacketData, PacketFormat};
+use topics::{DiagnosticMsg, PacketData, PacketFormat, SubscriptionRequest};
 use tungstenite::{WebSocket, accept};
 use serde::{Serialize, Deserialize};
 
@@ -97,7 +97,6 @@ pub struct WebsocketClient {
 impl WebsocketClient {
     pub fn new(websocket: WebSocket<TcpStream>) -> Self {
         let client = Rc::new(RefCell::new(Client::<PacketFormat<PacketData>>::default()));
-        client.borrow_mut().subscriptions.insert("all".to_string());
         WebsocketClient {
             client,
             websocket,
@@ -115,6 +114,17 @@ impl WebsocketClient {
         }
     }
 
+    pub fn update_topics(&mut self, sub_req: &SubscriptionRequest) {
+        let topics_set = HashSet::<String>::from_iter(sub_req.topics.iter().map(|s| s.to_string()));
+        if topics_set
+            .symmetric_difference(&self.client.borrow().subscriptions)
+            .count()
+            > 0
+        {
+            self.client.borrow_mut().subscriptions = topics_set;
+        }
+    }
+
     pub fn tick(&mut self) {
         // Read from websocket into incoming queue
         match self.websocket.read() {
@@ -123,12 +133,20 @@ impl WebsocketClient {
                 if msg.is_binary() {
                     // For simplicity, we just echo the message back.
                     let mut data_raw: Vec<u8> = msg.into_data().to_vec();
-                    let data = decode_packet::<PacketFormat<PacketData>>(data_raw.as_mut_slice());
+                    let data_len = data_raw.len();
+                    let without_zeros: &mut [u8] = data_raw.as_mut_slice()[1..data_len-1].as_mut();
+                    let data = decode_packet::<PacketFormat<PacketData>>(without_zeros);
+                    println!("Decoded websocket packet: {:?}", data);
                     match data {
                         Ok(packet) => {
+
                             self.stats.rx_packets += 1;
                             self.stats.rx_bytes += data_raw.len() as u32;
-                            self.client.borrow_mut().send(packet);
+                            if let PacketData::SubscriptionRequest(sub_req) = &packet.data {
+                                self.update_topics(&sub_req);
+                            } else {
+                                self.client.borrow_mut().send(packet);
+                            }
                         }
                         Err(_) => {
                             self.stats.decode_error_count += 1;

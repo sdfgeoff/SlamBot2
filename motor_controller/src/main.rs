@@ -52,7 +52,7 @@ fn main() -> ! {
 
     let mut host_connection = HostConnection::new(NonBlockingJtagUart::new(
         peripherals.USB_DEVICE,
-        Duration::from_millis(10),
+        Duration::from_millis(100),
     ));
 
     let mut led = Output::new(peripherals.GPIO8, Level::High, OutputConfig::default());

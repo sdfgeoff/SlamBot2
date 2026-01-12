@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import type { PacketFormat } from './messageFormat'
 import type { PacketEntry } from './logTypes'
@@ -9,33 +9,52 @@ import FiltersPanel from './components/FiltersPanel'
 import LogTable from './components/LogTable'
 
 function App() {
-  const [outgoingMessage, setOutgoingMessage] = useState('')
   const [packets, setPackets] = useState<PacketEntry[]>([])
   const [filterTo, setFilterTo] = useState('')
   const [filterFrom, setFilterFrom] = useState('')
   const [filterDataKey, setFilterDataKey] = useState('')
 
-  const handleMessage = useCallback((message: unknown) => {
-    const packet = message as PacketFormat
-    if (packet && typeof packet === 'object' && 'data' in packet && 'time' in packet) {
+  const handleMessage = useCallback((message: PacketFormat) => {
       setPackets((prev) => [
         ...prev,
-        { arrivalIndex: prev.length + 1, packet },
+        { arrivalIndex: prev.length + 1, packet: message },
       ])
-    }
   }, [])
 
-  const { send, status: wsStatus } = useWebSocket(handleMessage)
+  const { send, status: wsStatus } = useWebSocket<PacketFormat>(handleMessage)
 
-  const sendMessage = () => {
-    if (!outgoingMessage.trim()) {
-      return
+  const sendSubscriptionRequest = useCallback(() => {
+      const message: PacketFormat = {
+        to: null,
+        from: null,
+        time: BigInt(Date.now()),
+        id: Date.now() % 0xffffffff,
+        data: {
+          SubscriptionRequest: {
+            topics: ['all'],
+          },
+        },
+      }
+      console.log(message)
+      send(message)
+    }, [send])
+
+
+  useEffect(() => {
+    if (wsStatus === 'open') {
+      const timerId = window.setInterval(() => {
+        console.log("Sending subscription request")
+        sendSubscriptionRequest()
+      }, 2000)
+      return () => {
+        window.clearInterval(timerId)
+      }
     }
-    const sent = send(outgoingMessage)
-    if (sent) {
-      setOutgoingMessage('')
+    return () => {
+      /*pass*/
     }
-  }
+  }, [wsStatus])
+
 
   const dataKeys = useMemo(() => {
     const keys = new Set<string>()
@@ -97,9 +116,6 @@ function App() {
     <>
       <ConnectionPanel
         wsStatus={wsStatus}
-        outgoingMessage={outgoingMessage}
-        onOutgoingMessageChange={setOutgoingMessage}
-        onSend={sendMessage}
       />
       <FiltersPanel
         filterTo={filterTo}

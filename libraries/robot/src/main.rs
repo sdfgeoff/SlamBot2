@@ -40,7 +40,7 @@ fn main() {
     loop {
         clock_node.tick();
         router.borrow_mut().poll();
-        log_client.step();
+        // log_client.step();
         websocket_acceptor.tick();
         serial_client.tick();
     }

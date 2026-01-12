@@ -98,6 +98,9 @@ export const decodePacket = <T = unknown>(data: Uint8Array): T => {
   return cborDecode(payload) as T
 }
 
+/**
+ * Puts a 0x00 on the start and end of some data
+ */
 export const framePacket = (encoded: Uint8Array): Uint8Array => {
   const framed = new Uint8Array(encoded.length + 2)
   framed[0] = 0x00
