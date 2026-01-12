@@ -10,6 +10,7 @@ use nodes::clock::{Clock, get_current_time};
 use nodes::log::Log;
 use nodes::serial_client::SerialClient;
 use nodes::websocket_client::WebsocketAcceptor;
+use nodes::position_estimator::PositionEstimator;
 
 use topics::{PacketData, PacketFormat};
 
@@ -35,13 +36,18 @@ fn main() {
     router.borrow_mut().register_client(Rc::downgrade(&clock_node.client));
 
     let mut websocket_acceptor = WebsocketAcceptor::new(Rc::clone(&router), "127.0.0.1:9001");
-
+    
+    let mut position_estimator = PositionEstimator::new();
+    router
+        .borrow_mut()
+        .register_client(Rc::downgrade(&position_estimator.client));
 
     loop {
         clock_node.tick();
         router.borrow_mut().poll();
-        // log_client.step();
+        log_client.step();
         websocket_acceptor.tick();
         serial_client.tick();
+        position_estimator.tick();
     }
 }
