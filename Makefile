@@ -1,5 +1,7 @@
 .PHONY: motor_controller test
 
+run:
+	cd libraries && cargo run --bin robot
 
 web_interface:
 	cd webinterface && npm install && npm run dev
