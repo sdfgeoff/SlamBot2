@@ -64,6 +64,7 @@ pub enum PacketDecodeErr {
 }
 
 pub fn decode_packet<T: for<'a> Deserialize<'a>>(data: &mut [u8]) -> Result<T, PacketDecodeErr> {
+    
     // COBS
     let decoded_size = decode_in_place(data).map_err(PacketDecodeErr::CobsError)?;
     if decoded_size < 2 {

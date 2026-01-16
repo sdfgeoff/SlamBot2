@@ -1,9 +1,11 @@
-export enum DiagnosticStatus {
-    Ok = 0,
-    Warn = 1,
-    Error = 2,
-    Stale = 3,
-}
+export const DiagnosticStatus = {
+    Ok: 0,
+    Warn: 1,
+    Error: 2,
+    Stale: 3,
+} as const
+
+export type DiagnosticStatus = typeof DiagnosticStatus[keyof typeof DiagnosticStatus]
 
 export interface DiagnosticKeyValue {
     key: string;
@@ -41,6 +43,23 @@ export interface  PositionEstimate {
         orientation: number;
     }
 }
+
+export const MotionRequestMode = {
+    Velocity: 0,
+    Position: 1,
+    Stop: 2,
+} as const
+
+export type MotionRequestMode = typeof MotionRequestMode[keyof typeof MotionRequestMode]
+
+export interface MotionTargetRequest {
+    MotionTargetRequest: {
+        linear: [number, number];
+        angular: number;
+        motion_mode: MotionRequestMode;
+    }
+}
+
 export interface UnknownPacket { [key: string]: unknown }
 
 export interface PacketFormat<T> {
@@ -51,5 +70,5 @@ export interface PacketFormat<T> {
     data: T;
 }
 
-export type AnyPacketData = OdometryDelta | DiagnosticMsg | SubscriptionRequest | PositionEstimate | UnknownPacket
+export type AnyPacketData = OdometryDelta | DiagnosticMsg | SubscriptionRequest | PositionEstimate | MotionTargetRequest | UnknownPacket
 export type AnyPacketFormat = PacketFormat<AnyPacketData>;

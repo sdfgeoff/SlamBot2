@@ -6,7 +6,6 @@ use std::time::Instant;
 use topics::{DiagnosticMsg, PacketData, PacketFormat, SubscriptionRequest};
 use tungstenite::{WebSocket, accept};
 use serde::{Serialize};
-
 use packet_encoding::decode_packet;
 use packet_router::{Client, Router};
 use heapless::{String as HString, format as hformat};
@@ -146,13 +145,15 @@ impl WebsocketClient {
                                 self.client.borrow_mut().send(packet);
                             }
                         }
-                        Err(_) => {
+                        Err(err) => {
+                            eprintln!("Failed to decode packet: {:?}", err);
                             self.stats.decode_error_count += 1;
                         }
                     }
                 } else {
                     // Respond telling client to use binary
                     let warning_msg = tungstenite::Message::Text("Please send binary messages only.".into());
+                    eprintln!("Received non-binary websocket message.");
                     if let Err(_) = self.websocket.write(warning_msg) {
                         self.stats.decode_error_count += 1; // Counts as a failed message
                     }

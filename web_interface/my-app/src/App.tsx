@@ -9,7 +9,7 @@ type Tab = 'position' | 'diagnostics'
 
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>('position')
-  const { status: wsStatus, registerCallback } = useHostConnection()
+  const { status: wsStatus, registerCallback, send } = useHostConnection()
 
   return (
     <>
@@ -47,7 +47,7 @@ function App() {
           Diagnostics
         </button>
       </div>
-      {activeTab === 'position' && <PositionTab registerCallback={registerCallback} />}
+      {activeTab === 'position' && <PositionTab registerCallback={registerCallback} send={send} />}
       {activeTab === 'diagnostics' && <DiagnosticsTab registerCallback={registerCallback} />}
     </>
   )

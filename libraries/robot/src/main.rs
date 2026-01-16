@@ -8,6 +8,7 @@ use nodes::log::Log;
 use nodes::serial_adapter::SerialAdapter;
 use nodes::websocket_client::WebsocketAcceptor;
 use nodes::position_estimator::PositionEstimator;
+use nodes::motion_controller::MotionController;
 
 use topics::{PacketData, PacketFormat};
 
@@ -31,6 +32,11 @@ fn main() {
         .borrow_mut()
         .register_client(Rc::downgrade(&position_estimator.client));
 
+    let mut motion_controller = MotionController::new();
+    router
+        .borrow_mut()
+        .register_client(Rc::downgrade(&motion_controller.client));
+
     loop {
         clock_node.tick();
         router.borrow_mut().poll();
@@ -38,5 +44,6 @@ fn main() {
         websocket_acceptor.tick();
         serial_adapter.tick();
         position_estimator.tick();
+        motion_controller.tick();
     }
 }

@@ -5,9 +5,10 @@ import PositionPlot from './PositionPlot'
 
 interface PositionTabProps {
   registerCallback: (topic: string, callback: (message: AnyPacketFormat) => void) => () => void
+  send?: (message: AnyPacketFormat) => boolean
 }
 
-function PositionTab({ registerCallback }: PositionTabProps) {
+function PositionTab({ registerCallback, send }: PositionTabProps) {
   const [packets, setPackets] = useState<AnyPacketEntry[]>([])
 
   useEffect(() => {
@@ -23,7 +24,7 @@ function PositionTab({ registerCallback }: PositionTabProps) {
 
   return (
     <div>
-      <PositionPlot packets={packets} />
+      <PositionPlot packets={packets} send={send} />
     </div>
   )
 }

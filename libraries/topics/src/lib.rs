@@ -48,17 +48,18 @@ pub struct PositionEstimate {
 
 
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum MotionRequestMode {
     Velocity = 0,
     Position = 1,
+    Stop = 2,
 }
 
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct MotionTargetRequest {
-    pub linear: [f32; 2],
-    pub angular: f32,
+    pub linear: [f64; 2],
+    pub angular: f64,
     pub motion_mode: MotionRequestMode,
 }
 
