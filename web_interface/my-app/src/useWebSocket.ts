@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { decodePacket, encodePacket, framePacket, PacketFinder } from './packetEncoding'
+import { framePacket, PacketFinder } from './packetEncoding'
+import { encodePacket, decodePacket } from './usePacketCodec'
 
 export type WebSocketStatus = 'connecting' | 'open' | 'closed' | 'error'
 
@@ -46,7 +47,7 @@ export const useWebSocket = <T>(
             return
           }
           try {
-            decodedMessages.push(decodePacket<T>(packet))
+            decodedMessages.push(decodePacket(packet) as T)
           } catch (error) {
             // eslint-disable-next-line no-console
             console.error(error)
@@ -111,7 +112,7 @@ export const useWebSocket = <T>(
       return false
     }
     try {
-      const encoded = encodePacket(message)
+      const encoded = encodePacket(message as any)
       const framed = framePacket(encoded)
       socket.send(framed)
       return true

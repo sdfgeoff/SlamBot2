@@ -46,8 +46,8 @@ function PositionPlot({ packets, send }: PositionPlotProps) {
       data: {
         MotionTargetRequest: {
           linear: [worldX, worldY],
-          angular: 0.0, // TODO: this should be a f32
-          // motion_mode: MotionRequestMode.Position,
+          angular: 0.0,
+          motion_mode: MotionRequestMode.Position,
         },
       },
     }
