@@ -1,140 +1,54 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useState } from 'react'
 import './App.css'
-import type { AnyPacketFormat, PacketFormat } from './messageFormat'
-import type { AnyPacketEntry, PacketEntry } from './logTypes'
-import { getDataRootKey } from './logUtils'
-import { useWebSocket } from './useWebSocket'
+import { useHostConnection } from './useHostConnection'
 import ConnectionPanel from './components/ConnectionPanel'
-import FiltersPanel from './components/FiltersPanel'
-import DiagnosticGraph from './components/DiagnosticGraph'
-import LogTable from './components/LogTable'
+import PositionTab from './components/PositionTab'
+import DiagnosticsTab from './components/DiagnosticsTab'
+
+type Tab = 'position' | 'diagnostics'
 
 function App() {
-  const [packets, setPackets] = useState<AnyPacketEntry[]>([])
-  const [filterTo, setFilterTo] = useState('')
-  const [filterFrom, setFilterFrom] = useState('')
-  const [filterDataKey, setFilterDataKey] = useState('')
-
-  const handleMessage = useCallback((message: AnyPacketFormat) => {
-      setPackets((prev) => [
-        ...prev,
-        { arrivalIndex: prev.length + 1, packet: message },
-      ])
-  }, [])
-
-  const { send, status: wsStatus } = useWebSocket<AnyPacketFormat>(handleMessage)
-
-  const sendSubscriptionRequest = useCallback(() => {
-      const message: AnyPacketFormat = {
-        to: null,
-        from: null,
-        time: BigInt(Date.now()),
-        id: Date.now() % 0xffffffff,
-        data: {
-          SubscriptionRequest: {
-            topics: ['all'],
-          },
-        },
-      }
-      console.log(message)
-      send(message)
-    }, [send])
-
-
-  useEffect(() => {
-    if (wsStatus === 'open') {
-      const timerId = window.setInterval(() => {
-        console.log("Sending subscription request")
-        sendSubscriptionRequest()
-      }, 2000)
-      return () => {
-        window.clearInterval(timerId)
-      }
-    }
-    return () => {
-      /*pass*/
-    }
-  }, [wsStatus])
-
-
-  const dataKeys = useMemo(() => {
-    const keys = new Set<string>()
-    packets.forEach(({ packet }) => {
-      const key = getDataRootKey(packet)
-      if (key) {
-        keys.add(key)
-      }
-    })
-    return Array.from(keys).sort()
-  }, [packets])
-
-  const nodeOptions = useMemo(() => {
-    const nodes = new Set<number | null>()
-    packets.forEach(({ packet }) => {
-      nodes.add(packet.to)
-      nodes.add(packet.from)
-    })
-    const sorted = Array.from(nodes).sort((a, b) => {
-      if (a === null && b === null) return 0
-      if (a === null) return -1
-      if (b === null) return 1
-      return a - b
-    })
-    return sorted.map((node) => (node === null ? 'null' : String(node)))
-  }, [packets])
-
-  const filteredPackets = useMemo(() => {
-    return packets.filter(({ packet }) => {
-      if (filterTo) {
-        if (filterTo === 'null') {
-          if (packet.to !== null) {
-            return false
-          }
-        } else if (String(packet.to ?? '') !== filterTo) {
-          return false
-        }
-      }
-      if (filterFrom) {
-        if (filterFrom === 'null') {
-          if (packet.from !== null) {
-            return false
-          }
-        } else if (String(packet.from ?? '') !== filterFrom) {
-          return false
-        }
-      }
-      if (filterDataKey) {
-        const key = getDataRootKey(packet)
-        if (key !== filterDataKey) {
-          return false
-        }
-      }
-      return true
-    })
-  }, [packets, filterTo, filterFrom, filterDataKey])
+  const [activeTab, setActiveTab] = useState<Tab>('position')
+  const { status: wsStatus, registerCallback } = useHostConnection()
 
   return (
     <>
-      <ConnectionPanel
-        wsStatus={wsStatus}
-      />
-      <FiltersPanel
-        filterTo={filterTo}
-        filterFrom={filterFrom}
-        filterDataKey={filterDataKey}
-        nodeOptions={nodeOptions}
-        dataKeys={dataKeys}
-        onFilterToChange={setFilterTo}
-        onFilterFromChange={setFilterFrom}
-        onFilterDataKeyChange={setFilterDataKey}
-        onClear={() => {
-          setFilterTo('')
-          setFilterFrom('')
-          setFilterDataKey('')
-        }}
-      />
-      <DiagnosticGraph packets={filteredPackets} />
-      <LogTable packets={filteredPackets} />
+      <ConnectionPanel wsStatus={wsStatus} />
+      <div style={{ margin: '20px', padding: '10px', borderBottom: '1px solid #ccc' }}>
+        <button
+          onClick={() => setActiveTab('position')}
+          style={{
+            padding: '10px 20px',
+            marginRight: '10px',
+            backgroundColor: activeTab === 'position' ? '#2196F3' : '#f0f0f0',
+            color: activeTab === 'position' ? 'white' : 'black',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '16px',
+            fontWeight: activeTab === 'position' ? 'bold' : 'normal',
+          }}
+        >
+          Position
+        </button>
+        <button
+          onClick={() => setActiveTab('diagnostics')}
+          style={{
+            padding: '10px 20px',
+            backgroundColor: activeTab === 'diagnostics' ? '#2196F3' : '#f0f0f0',
+            color: activeTab === 'diagnostics' ? 'white' : 'black',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '16px',
+            fontWeight: activeTab === 'diagnostics' ? 'bold' : 'normal',
+          }}
+        >
+          Diagnostics
+        </button>
+      </div>
+      {activeTab === 'position' && <PositionTab registerCallback={registerCallback} />}
+      {activeTab === 'diagnostics' && <DiagnosticsTab registerCallback={registerCallback} />}
     </>
   )
 }

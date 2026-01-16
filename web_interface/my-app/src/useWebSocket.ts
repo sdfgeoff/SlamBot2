@@ -5,6 +5,7 @@ export type WebSocketStatus = 'connecting' | 'open' | 'closed' | 'error'
 
 const defaultUrl = () => `ws://${window.location.hostname}:9001`
 const RETRY_INTERVAL_MS = 10000
+
 export const useWebSocket = <T>(
   onMessage: (message: T) => void,
   url = defaultUrl(),

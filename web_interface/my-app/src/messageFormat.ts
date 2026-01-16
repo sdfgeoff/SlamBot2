@@ -34,6 +34,13 @@ export interface SubscriptionRequest {
     }
 }
 
+export interface  PositionEstimate {
+    PositionEstimate: {
+        timestamp: bigint;
+        position: [number, number];
+        orientation: number;
+    }
+}
 export interface UnknownPacket { [key: string]: unknown }
 
 export interface PacketFormat<T> {
@@ -44,5 +51,5 @@ export interface PacketFormat<T> {
     data: T;
 }
 
-export type AnyPacketData = OdometryDelta | DiagnosticMsg | SubscriptionRequest | UnknownPacket
+export type AnyPacketData = OdometryDelta | DiagnosticMsg | SubscriptionRequest | PositionEstimate | UnknownPacket
 export type AnyPacketFormat = PacketFormat<AnyPacketData>;

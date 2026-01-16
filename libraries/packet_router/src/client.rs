@@ -19,6 +19,7 @@ impl<T: PacketTrait> Default for Client<T> {
 }
 
 impl<T: PacketTrait> Client<T> {
+
     pub fn send(&mut self, packet: T) {
         self.client_to_router.push(packet);
     }

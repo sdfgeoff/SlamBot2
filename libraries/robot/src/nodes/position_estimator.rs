@@ -1,13 +1,18 @@
-use std::cell::RefCell;
+use std::time::Instant;
+use std::{cell::RefCell, time::Duration};
 use std::rc::Rc;
 use packet_router::Client;
 use topics::{PacketData, PacketFormat, PacketDataTrait};
+
+use crate::nodes::clock::get_current_time;
 
 
 pub struct PositionEstimator {
     pub client: Rc<RefCell<Client<PacketFormat<PacketData>>>>,
     position: [f32; 2],
     orientation: f32,
+
+    last_estimate_send_time: Instant,
 }
 
 
@@ -24,6 +29,7 @@ impl PositionEstimator {
             client,
             position: [0.0, 0.0],
             orientation: 0.0,
+            last_estimate_send_time: Instant::now(),
         }
     }
 
@@ -45,6 +51,27 @@ impl PositionEstimator {
                 self.position[1] += dx * self.orientation.sin() + dy * self.orientation.cos();
             }
         }
+
+        // Send position estimate at regular intervals
+        if self.last_estimate_send_time.elapsed() >= Duration::from_millis(100) {
+            let time = get_current_time();
+            let estimate = topics::PositionEstimate {
+                timestamp: time.clone(),
+                position: self.position,
+                orientation: self.orientation,
+            };
+            let packet = PacketData::PositionEstimate(estimate);
+            self.client.borrow_mut().send(PacketFormat {
+                to: None,
+                from: None,
+                data: packet,
+                time: time,
+                id: 0,
+            });
+            self.last_estimate_send_time = Instant::now();
+        }
+
+
     }
 }
 

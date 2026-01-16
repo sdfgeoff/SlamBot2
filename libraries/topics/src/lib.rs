@@ -39,11 +39,36 @@ pub struct MotionVelocityRequest {
     pub angular_velocity: f32,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct PositionEstimate {
+    pub timestamp: u64,
+    pub position: [f32; 2],
+    pub orientation: f32,
+}
+
+
+
+#[derive(Serialize, Deserialize, Debug)]
+pub enum MotionRequestMode {
+    Velocity = 0,
+    Position = 1,
+}
+
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct MotionTargetRequest {
+    pub linear: [f32; 2],
+    pub angular: f32,
+    pub motion_mode: MotionRequestMode,
+}
+
 packet_data_enum!(
     ClockRequest,
     ClockResponse,
     DiagnosticMsg,
     OdometryDelta,
     SubscriptionRequest,
-    MotionVelocityRequest
+    MotionVelocityRequest,
+    PositionEstimate,
+    MotionTargetRequest,
 );

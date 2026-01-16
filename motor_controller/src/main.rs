@@ -250,12 +250,12 @@ fn diag_value(key: &str, value: &impl core::fmt::Display) -> topics::DiagnosticK
 }
 
 fn update_odometry(odometry: &mut OdometryDelta, left_count: i64, right_count: i64) {
-    let left_distance = -left_count as f32 * WHEEL_CIRCUMFERENCE / ENCODER_TICKS_PER_REVOLUTION;
-    let right_distance = right_count as f32 * WHEEL_CIRCUMFERENCE / ENCODER_TICKS_PER_REVOLUTION;
+    let left_distance = left_count as f32 * WHEEL_CIRCUMFERENCE / ENCODER_TICKS_PER_REVOLUTION;
+    let right_distance = -right_count as f32 * WHEEL_CIRCUMFERENCE / ENCODER_TICKS_PER_REVOLUTION;
     let delta_distance = (left_distance + right_distance) / 2.0;
     let delta_theta = (right_distance - left_distance) / WHEEL_BASE_WIDTH;
 
-    odometry.delta_position[0] += delta_distance * cosf(odometry.delta_orientation);
-    odometry.delta_position[1] += delta_distance * sinf(odometry.delta_orientation);
+    odometry.delta_position[0] -= delta_distance * sinf(odometry.delta_orientation);
+    odometry.delta_position[1] += delta_distance * cosf(odometry.delta_orientation);
     odometry.delta_orientation += delta_theta;
 }

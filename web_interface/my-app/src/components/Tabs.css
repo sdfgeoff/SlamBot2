@@ -1,0 +1,47 @@
+/* Tab Container */
+.tab-container {
+  margin: 20px;
+  padding: 10px;
+  border-bottom: 1px solid #ccc;
+}
+
+/* Tab Button */
+.tab-button {
+  padding: 10px 20px;
+  margin-right: 10px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.3s ease;
+}
+
+.tab-button:hover {
+  opacity: 0.8;
+}
+
+.tab-button-active {
+  background-color: #2196F3;
+  color: white;
+  font-weight: bold;
+}
+
+.tab-button-inactive {
+  background-color: #f0f0f0;
+  color: black;
+  font-weight: normal;
+}
+
+/* Tab Content */
+.tab-content {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
