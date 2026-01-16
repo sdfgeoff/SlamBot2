@@ -1,10 +1,13 @@
-.PHONY: motor_controller test
+.PHONY: motor_controller test wasm
 
 run:
 	cd libraries && cargo run --bin robot
 
 web_interface:
-	cd webinterface && npm install && npm run dev
+	cd web_interface && npm install && npm run dev
+
+wasm:
+	wasm-pack build --target bundler --out-dir ../../web_interface/my-app/src/wasm libraries/packet_wasm
 
 motor_controller:
 	cd motor_controller && cargo run --release
