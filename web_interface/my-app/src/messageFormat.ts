@@ -10,28 +10,39 @@ export interface DiagnosticKeyValue {
     value: string;
 }
 
-export interface PacketFormat {
+
+export interface OdometryDelta {
+    OdometryDelta: {
+        start_time: bigint;
+        end_time: bigint;
+        delta_position: [number, number];
+        delta_orientation: number;
+    }
+}
+
+export interface DiagnosticMsg {
+    DiagnosticMsg: {
+        level: DiagnosticStatus;
+        name: string;
+        message: string;
+        values: DiagnosticKeyValue[];
+    }
+}
+export interface SubscriptionRequest {
+    SubscriptionRequest: {
+        topics: string[];
+    }
+}
+
+export interface UnknownPacket { [key: string]: unknown }
+
+export interface PacketFormat<T> {
     to: number | null;
     from: number | null;
     time: bigint;
     id: number;
-    data: {
-        "OdometryDelta": {
-            start_time: bigint;
-            end_time: bigint;
-            delta_position: [number, number];
-            delta_orientation: number;
-        },
-    } | {
-        "DiagnosticMsg": {
-            level: DiagnosticStatus;
-            name: string;
-            message: string;
-            values: DiagnosticKeyValue[];
-        }
-    } | {
-        "SubscriptionRequest": {
-            topics: string[];
-        }
-    } | { [key: string]: unknown};
+    data: T;
 }
+
+export type AnyPacketData = OdometryDelta | DiagnosticMsg | SubscriptionRequest | UnknownPacket
+export type AnyPacketFormat = PacketFormat<AnyPacketData>;

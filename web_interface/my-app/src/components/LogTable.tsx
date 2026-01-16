@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react'
+import { FixedSizeList, type ListOnScrollProps } from 'react-window'
 import type { PacketEntry } from '../logTypes'
 import { formatEndpoint, formatTime, getDataRootKey, summarizePacket } from '../logUtils'
 
@@ -6,10 +7,15 @@ type LogTableProps = {
   packets: PacketEntry[]
 }
 
+const ROW_HEIGHT = 44
+const AUTO_SCROLL_THRESHOLD = 16
+
 const LogTable = ({ packets }: LogTableProps) => {
-  const logContainerRef = useRef<HTMLDivElement | null>(null)
+  const listContainerRef = useRef<HTMLDivElement | null>(null)
+  const listRef = useRef<FixedSizeList | null>(null)
   const shouldAutoScrollRef = useRef(true)
   const [selectedPacket, setSelectedPacket] = useState<PacketEntry | null>(null)
+  const [listHeight, setListHeight] = useState(360)
   const jsonReplacer = (_key: string, value: unknown) =>
     typeof value === 'bigint' ? value.toString() : value
   const formattedPacket = selectedPacket
@@ -27,53 +33,83 @@ const LogTable = ({ packets }: LogTableProps) => {
     if (!shouldAutoScrollRef.current) {
       return
     }
-    const container = logContainerRef.current
-    if (container) {
-      container.scrollTop = container.scrollHeight
+    if (packets.length > 0) {
+      listRef.current?.scrollToItem(packets.length - 1, 'end')
     }
   }, [packets.length])
 
-  const handleLogScroll = () => {
-    const container = logContainerRef.current
+  useEffect(() => {
+    const container = listContainerRef.current
     if (!container) {
       return
     }
-    const threshold = 12
-    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight
-    shouldAutoScrollRef.current = distanceFromBottom <= threshold
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (entry) {
+        setListHeight(entry.contentRect.height)
+      }
+    })
+    observer.observe(container)
+    return () => observer.disconnect()
+  }, [])
+
+  const handleLogScroll = ({ scrollOffset }: ListOnScrollProps) => {
+    const totalHeight = packets.length * ROW_HEIGHT
+    const distanceFromBottom = totalHeight - (scrollOffset + listHeight)
+    shouldAutoScrollRef.current = distanceFromBottom <= AUTO_SCROLL_THRESHOLD
   }
+
+  const renderRow = useMemo(
+    () =>
+      ({ index, style }: { index: number; style: CSSProperties }) => {
+        const entry = packets[index]
+        if (!entry) {
+          return null
+        }
+        const { arrivalIndex, packet } = entry
+        const isSelected = selectedPacket?.arrivalIndex === arrivalIndex
+        return (
+          <div
+            className={`log-row log-grid${isSelected ? ' is-selected' : ''}`}
+            style={style}
+            onClick={() => setSelectedPacket({ arrivalIndex, packet })}
+          >
+            <div className="log-cell compact-cell">{arrivalIndex}</div>
+            <div className="log-cell time-cell">{formatTime(packet.time)}</div>
+            <div className="log-cell compact-cell">{formatEndpoint(packet.to)}</div>
+            <div className="log-cell compact-cell">{formatEndpoint(packet.from)}</div>
+            <div className="log-cell">{getDataRootKey(packet) || 'Unknown'}</div>
+            <div className="log-cell summary-cell">{summarizePacket(packet)}</div>
+          </div>
+        )
+      },
+    [packets, selectedPacket]
+  )
 
   return (
     <div className="card">
       <p>Log</p>
-      <div className="log-container" ref={logContainerRef} onScroll={handleLogScroll}>
-        <table className="log-table">
-          <thead>
-            <tr>
-              <th className="compact-cell">#</th>
-              <th className="time-cell">Time (UTC)</th>
-              <th className="compact-cell">To</th>
-              <th className="compact-cell">From</th>
-              <th>Type</th>
-              <th className="summary-cell">Summary</th>
-            </tr>
-          </thead>
-          <tbody>
-            {packets.map(({ arrivalIndex, packet }) => (
-              <tr
-                key={arrivalIndex}
-                onClick={() => setSelectedPacket({ arrivalIndex, packet })}
-              >
-                <td className="compact-cell">{arrivalIndex}</td>
-                <td className="time-cell">{formatTime(packet.time)}</td>
-                <td className="compact-cell">{formatEndpoint(packet.to)}</td>
-                <td className="compact-cell">{formatEndpoint(packet.from)}</td>
-                <td>{getDataRootKey(packet) || 'Unknown'}</td>
-                <td className="summary-cell">{summarizePacket(packet)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="log-container">
+        <div className="log-header log-grid">
+          <div className="log-cell compact-cell">#</div>
+          <div className="log-cell time-cell">Time (UTC)</div>
+          <div className="log-cell compact-cell">To</div>
+          <div className="log-cell compact-cell">From</div>
+          <div className="log-cell">Type</div>
+          <div className="log-cell summary-cell">Summary</div>
+        </div>
+        <div className="log-body" ref={listContainerRef}>
+          <FixedSizeList
+            height={listHeight}
+            width="100%"
+            itemCount={packets.length}
+            itemSize={ROW_HEIGHT}
+            onScroll={handleLogScroll}
+            ref={listRef}
+          >
+            {renderRow}
+          </FixedSizeList>
+        </div>
       </div>
       {selectedPacket ? (
         <div className="log-detail">

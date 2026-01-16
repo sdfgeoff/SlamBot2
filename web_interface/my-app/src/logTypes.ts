@@ -1,6 +1,8 @@
-import type { PacketFormat } from './messageFormat'
+import type { AnyPacketData, PacketFormat } from './messageFormat'
 
-export type PacketEntry = {
+export type PacketEntry<T> = {
   arrivalIndex: number
-  packet: PacketFormat
+  packet: PacketFormat<T>
 }
+
+export type AnyPacketEntry = PacketEntry<AnyPacketData>

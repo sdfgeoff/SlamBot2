@@ -42,25 +42,28 @@
 }
 
 .log-container {
-  max-height: 480px;
-  overflow-y: auto;
-  overflow-x: hidden;
+  height: min(480px, 70vh);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   width: 100%;
   border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 12px;
   background: #ffffff;
 }
 
-.log-table {
-  border-collapse: collapse;
-  overflow: hidden;
-  width: 100%;
-  table-layout: fixed;
+.log-body {
+  flex: 1 1 auto;
+}
+
+.log-grid {
+  display: grid;
+  grid-template-columns: 6rem 9rem 6rem 6rem 8rem 1fr;
+  align-items: center;
   font-size: 0.95rem;
 }
 
-.log-table th,
-.log-table td {
+.log-cell {
   text-align: left;
   padding: 0.5rem;
   border-bottom: 1px solid rgba(15, 23, 42, 0.06);
@@ -76,24 +79,24 @@
   font-size: 0.85rem;
 }
 
-.log-table th:nth-child(5),
-.log-table td:nth-child(5) {
-  width: 8rem;
-}
-
-.log-table thead th {
+.log-header {
   font-family: "Space Grotesk", "Public Sans", system-ui, sans-serif;
   color: var(--accent-strong);
   background: rgba(15, 118, 110, 0.08);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.1);
 }
 
-.log-table tbody tr {
+.log-row {
   transition: background-color 0.2s ease;
   cursor: pointer;
 }
 
-.log-table tbody tr:hover {
+.log-row:hover {
   background-color: rgba(15, 118, 110, 0.08);
+}
+
+.log-row.is-selected {
+  background-color: rgba(15, 118, 110, 0.16);
 }
 
 .summary-cell {

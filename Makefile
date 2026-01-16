@@ -1,5 +1,9 @@
 .PHONY: motor_controller test
 
+
+web_interface:
+	cd webinterface && npm install && npm run dev
+
 motor_controller:
 	cd motor_controller && cargo run --release
 

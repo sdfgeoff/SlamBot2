@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
-import type { PacketFormat } from './messageFormat'
-import type { PacketEntry } from './logTypes'
+import type { AnyPacketFormat, PacketFormat } from './messageFormat'
+import type { AnyPacketEntry, PacketEntry } from './logTypes'
 import { getDataRootKey } from './logUtils'
 import { useWebSocket } from './useWebSocket'
 import ConnectionPanel from './components/ConnectionPanel'
@@ -10,22 +10,22 @@ import DiagnosticGraph from './components/DiagnosticGraph'
 import LogTable from './components/LogTable'
 
 function App() {
-  const [packets, setPackets] = useState<PacketEntry[]>([])
+  const [packets, setPackets] = useState<AnyPacketEntry[]>([])
   const [filterTo, setFilterTo] = useState('')
   const [filterFrom, setFilterFrom] = useState('')
   const [filterDataKey, setFilterDataKey] = useState('')
 
-  const handleMessage = useCallback((message: PacketFormat) => {
+  const handleMessage = useCallback((message: AnyPacketFormat) => {
       setPackets((prev) => [
         ...prev,
         { arrivalIndex: prev.length + 1, packet: message },
       ])
   }, [])
 
-  const { send, status: wsStatus } = useWebSocket<PacketFormat>(handleMessage)
+  const { send, status: wsStatus } = useWebSocket<AnyPacketFormat>(handleMessage)
 
   const sendSubscriptionRequest = useCallback(() => {
-      const message: PacketFormat = {
+      const message: AnyPacketFormat = {
         to: null,
         from: null,
         time: BigInt(Date.now()),
