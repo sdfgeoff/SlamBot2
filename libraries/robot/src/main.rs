@@ -13,7 +13,6 @@ use nodes::motion_controller::MotionController;
 use topics::{PacketData, PacketFormat};
 
 fn main() {
-    println!("Hello, world!");
     let router_raw = packet_router::Router::<PacketFormat<PacketData>>::new();
     let router = Rc::new(RefCell::new(router_raw));
 

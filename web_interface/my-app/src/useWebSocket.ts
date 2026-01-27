@@ -47,7 +47,7 @@ export const useWebSocket = <T>(
             return
           }
           try {
-            decodedMessages.push(decodePacket(packet) as T)
+            decodedMessages.push(decodePacket<T>(packet))
           } catch (error) {
             // eslint-disable-next-line no-console
             console.error(error)
@@ -112,7 +112,7 @@ export const useWebSocket = <T>(
       return false
     }
     try {
-      const encoded = encodePacket(message as any)
+      const encoded = encodePacket(message)
       const framed = framePacket(encoded)
       socket.send(framed)
       return true

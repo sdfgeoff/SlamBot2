@@ -44,19 +44,12 @@ export interface  PositionEstimate {
     }
 }
 
-export const MotionRequestMode = {
-    Velocity: 0,
-    Position: 1,
-    Stop: 2,
-} as const
-
-export type MotionRequestMode = typeof MotionRequestMode[keyof typeof MotionRequestMode]
 
 export interface MotionTargetRequest {
     MotionTargetRequest: {
         linear: [number, number];
         angular: number;
-        motion_mode: MotionRequestMode;
+        motion_mode: 'Position' | 'Velocity' | 'Stop';
     }
 }
 

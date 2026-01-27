@@ -631,6 +631,7 @@ dependencies = [
  "heapless 0.9.2",
  "libm",
  "packet_encoding",
+ "packet_trait",
  "serde",
  "topics",
 ]

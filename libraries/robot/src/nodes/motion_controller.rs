@@ -71,7 +71,6 @@ impl MotionController {
             match &packet.data {
                 PacketData::MotionTargetRequest(req) => {
                     // Update the current target
-                    println!("Received Motion Target Request: {:?}", req);
                     self.current_target = Some(MotionTarget {
                         linear: req.linear,
                         angular: req.angular,
@@ -92,7 +91,6 @@ impl MotionController {
         // Generate velocity commands based on current target
         if let Some(target) = &self.current_target && self.last_packet_time.elapsed() >= self.packet_interval {
             self.last_packet_time = Instant::now();
-            println!("Sending Velocity Command for Target: {:?}", target);
             let velocity_cmd = match target.mode {
                 MotionRequestMode::Velocity => {
                     // Direct velocity control - just pass through the target
@@ -128,6 +126,7 @@ impl MotionController {
                     time: get_current_time(),
                     id: 0,
                 };
+
                 self.client.borrow_mut().send(packet);
                 self.last_packet_time = Instant::now();
             }

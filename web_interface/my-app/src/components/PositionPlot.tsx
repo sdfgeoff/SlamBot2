@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { AnyPacketEntry, PacketEntry } from '../logTypes'
-import type { PositionEstimate, AnyPacketFormat } from '../messageFormat'
-import { MotionRequestMode } from '../messageFormat'
+import type { PositionEstimate, AnyPacketFormat, MotionTargetRequest, PacketFormat } from '../messageFormat'
 
 interface PositionPlotProps {
   packets: AnyPacketEntry[]
@@ -38,7 +37,7 @@ function PositionPlot({ packets, send }: PositionPlotProps) {
     setTargetPosition([worldX, worldY])
 
     // Send MotionTargetRequest
-    const message: AnyPacketFormat = {
+    const message: PacketFormat<MotionTargetRequest> = {
       to: null,
       from: null,
       time: BigInt(Date.now()),
@@ -47,7 +46,7 @@ function PositionPlot({ packets, send }: PositionPlotProps) {
         MotionTargetRequest: {
           linear: [worldX, worldY],
           angular: 0.0,
-          motion_mode: MotionRequestMode.Position,
+          motion_mode: "Position",
         },
       },
     }

@@ -76,13 +76,13 @@ impl SerialAdapter {
                             self.clients_by_path.insert(port_path.clone(), client);
                         }
                         Err(e) => {
-                            println!("Failed to open serial port {}: {:?}", port_path, e);
+                            eprintln!("Failed to open serial port {}: {:?}", port_path, e);
                         }
                     }
                 }
             }
             Err(e) => {
-                println!("Error scanning for serial ports: {:?}", e);
+                eprintln!("Error scanning for serial ports: {:?}", e);
             }
         }
     }

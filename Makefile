@@ -3,11 +3,13 @@
 run:
 	cd libraries && cargo run --bin robot
 
-web_interface:
-	cd web_interface && npm install && npm run dev
 
 wasm:
 	wasm-pack build --target bundler --out-dir ../../web_interface/my-app/src/wasm libraries/packet_wasm
+
+web_interface: wasm
+	cd web_interface/my-app && npm install && npm run dev
+
 
 motor_controller:
 	cd motor_controller && cargo run --release

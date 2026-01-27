@@ -1,10 +1,10 @@
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react'
 import { FixedSizeList, type ListOnScrollProps } from 'react-window'
-import type { PacketEntry } from '../logTypes'
+import type { AnyPacketEntry, PacketEntry } from '../logTypes'
 import { formatEndpoint, formatTime, getDataRootKey, summarizePacket } from '../logUtils'
 
 type LogTableProps = {
-  packets: PacketEntry[]
+  packets: AnyPacketEntry[]
 }
 
 const ROW_HEIGHT = 44
@@ -14,7 +14,7 @@ const LogTable = ({ packets }: LogTableProps) => {
   const listContainerRef = useRef<HTMLDivElement | null>(null)
   const listRef = useRef<FixedSizeList | null>(null)
   const shouldAutoScrollRef = useRef(true)
-  const [selectedPacket, setSelectedPacket] = useState<PacketEntry | null>(null)
+  const [selectedPacket, setSelectedPacket] = useState<AnyPacketEntry | null>(null)
   const [listHeight, setListHeight] = useState(360)
   const jsonReplacer = (_key: string, value: unknown) =>
     typeof value === 'bigint' ? value.toString() : value

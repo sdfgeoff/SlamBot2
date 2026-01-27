@@ -144,7 +144,7 @@ impl SerialClient {
                             }
                             Err(e) => {
                                 self.stats.decode_error_count += 1;
-                                println!("Failed to decode packet: {:?} {:X?}", e, packet_data);
+                                eprintln!("Failed to decode packet: {:?} {:X?}", e, packet_data);
                             }
                         }
                     }
@@ -179,7 +179,7 @@ impl SerialClient {
                         .write_all(&encode_buffer[..encoded_size + 2])
                     {
                         self.stats.write_error_count += 1;
-                        println!("Failed to write packet: {:?}", e);
+                        eprintln!("Failed to write packet: {:?}", e);
                         // Mark as dead if we can't write
                         if e.kind() == std::io::ErrorKind::BrokenPipe {
                             self.is_alive = false;
@@ -189,7 +189,7 @@ impl SerialClient {
                 }
                 Err(e) => {
                     self.stats.encode_error_count += 1;
-                    println!("Failed to encode packet: {:?}", e);
+                    eprintln!("Failed to encode packet: {:?}", e);
                 }
             }
         }

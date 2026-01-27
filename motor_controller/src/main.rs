@@ -39,6 +39,8 @@ use motor_controller::{MotorControllers, MotorDriver};
 mod packet_data;
 use packet_data::PacketData;
 
+use packet_trait::PacketTrait;
+
 mod consts;
 use consts::{WHEEL_CIRCUMFERENCE, WHEEL_BASE_WIDTH, ENCODER_TICKS_PER_REVOLUTION};
 
@@ -207,6 +209,22 @@ fn main() -> ! {
             lastEncoderSendTime = loop_start_time;
         }
         while let Some(packet) = host_connection.step() {
+            let topic = packet.get_topic();
+
+            let mut diag = Vec::new();
+            diag.push(diag_value("topic", &topic)).ok();
+            host_connection.send_packet(
+                &clock,
+                PacketData::DiagnosticMsg(topics::DiagnosticMsg {
+                    level: DiagnosticStatus::Ok,
+                    name: String::from_str("received_packet").unwrap(),
+                    message: String::from_str("").unwrap(),
+                    values: diag,
+                }),
+                None,
+            ).ok();
+
+
             match packet.data {
                 PacketData::ClockResponse(resp) => {
                     let round_trip_time = clock.handle_clock_response(&resp);

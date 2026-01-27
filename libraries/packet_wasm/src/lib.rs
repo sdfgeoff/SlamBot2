@@ -18,12 +18,12 @@ pub fn init() {
 pub fn encode_packet(json: &str) -> Result<Vec<u8>, JsValue> {
     // Parse JSON to PacketFormat
     let packet: PacketFormat<PacketData> = serde_json::from_str(json)
-        .map_err(|e| JsValue::from_str(&format!("Failed to parse JSON: {}", e)))?;
+        .map_err(|e| JsValue::from_str(&format!("Failed to parse JSON: {}, {}", e, json)))?;
     
     // Encode to CBOR
     let mut buffer = [0u8; 1024];
     let size = packet_encoding::encode_packet(&packet, &mut buffer)
-        .map_err(|e| JsValue::from_str(&format!("Failed to encode to CBOR: {:?}", e)))?;
+        .map_err(|e| JsValue::from_str(&format!("Failed to encode to CBOR: {:?}, {:?}", e, packet)))?;
     
     Ok(buffer[..size].to_vec())
 }

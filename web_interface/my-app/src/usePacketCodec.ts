@@ -14,6 +14,8 @@ export function encodePacket(packet: AnyPacketFormat): Uint8Array {
     typeof value === 'bigint' ? Number(value) : value
   )
 
+  console.log("Encoding packet:", jsonPacket)
+
   try {
     return wasmEncode(jsonPacket)
   } catch (error) {
@@ -33,7 +35,7 @@ export function decodePacket(bytes: Uint8Array): AnyPacketFormat {
     const parsed = JSON.parse(jsonString, (_key, value) => {
       // Convert large numbers back to BigInt
       // This is a heuristic - assumes numbers > Number.MAX_SAFE_INTEGER should be BigInt
-      if (typeof value === 'number' && !Number.isSafeInteger(value)) {
+      if (typeof value === 'number' && Number.isInteger(value) && !Number.isSafeInteger(value)) {
         return BigInt(value)
       }
       return value
