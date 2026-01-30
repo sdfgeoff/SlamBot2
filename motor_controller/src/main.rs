@@ -56,6 +56,7 @@ fn main() -> ! {
         peripherals.USB_DEVICE,
         Duration::from_millis(100),
     ));
+    host_connection.subscribed_topics.push("MotionVelocityRequest").ok();
 
     let mut led = Output::new(peripherals.GPIO8, Level::High, OutputConfig::default());
 
@@ -166,6 +167,7 @@ fn main() -> ! {
         delta_orientation: 0.0,
     };
 
+
     loop {
         let (left_count, right_count) = critical_section::with(|cs| {
             if let Some(encoders) = ENCODER_STATE.borrow(cs).borrow_mut().as_mut() {
@@ -209,22 +211,6 @@ fn main() -> ! {
             lastEncoderSendTime = loop_start_time;
         }
         while let Some(packet) = host_connection.step() {
-            let topic = packet.get_topic();
-
-            let mut diag = Vec::new();
-            diag.push(diag_value("topic", &topic)).ok();
-            host_connection.send_packet(
-                &clock,
-                PacketData::DiagnosticMsg(topics::DiagnosticMsg {
-                    level: DiagnosticStatus::Ok,
-                    name: String::from_str("received_packet").unwrap(),
-                    message: String::from_str("").unwrap(),
-                    values: diag,
-                }),
-                None,
-            ).ok();
-
-
             match packet.data {
                 PacketData::ClockResponse(resp) => {
                     let round_trip_time = clock.handle_clock_response(&resp);
@@ -257,7 +243,9 @@ fn main() -> ! {
 
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo) -> ! {
-    loop {}
+    loop {
+
+    }
 }
 
 fn diag_value(key: &str, value: &impl core::fmt::Display) -> topics::DiagnosticKeyValue {

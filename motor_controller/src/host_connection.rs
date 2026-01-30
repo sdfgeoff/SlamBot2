@@ -2,9 +2,10 @@ use crate::Clock;
 use esp_hal::peripherals::USB_DEVICE;
 use esp_hal::time::{Duration, Instant};
 use esp_hal::usb_serial_jtag::UsbSerialJtag;
+use heapless::{String, Vec};
 use packet_encoding::encode_packet;
 use topics::PacketFormat;
-
+use core::str::FromStr;
 use crate::PacketData;
 
 #[derive(Debug)]
@@ -93,7 +94,14 @@ pub struct HostConnection<'a> {
     packet_finder: packet_encoding::PacketFinder,
     message_id: u32,
     decode_errors: u32,
+
+    pub subscribed_topics: Vec<&'static str, 16>,
+    subscription_packet_send_time: Instant,
 }
+
+
+
+
 
 impl<'a> HostConnection<'a> {
     pub fn new(usb: NonBlockingJtagUart<'a>) -> Self {
@@ -102,6 +110,8 @@ impl<'a> HostConnection<'a> {
             packet_finder: packet_encoding::PacketFinder::new(),
             message_id: 0,
             decode_errors: 0,
+            subscribed_topics: Vec::new(),
+            subscription_packet_send_time: Instant::now(),
         }
     }
 
@@ -122,7 +132,20 @@ impl<'a> HostConnection<'a> {
         send_message(&mut self.usb, &packet)
     }
 
+
     pub fn step(&mut self) -> Option<PacketFormat<PacketData>> {
+        if self.subscription_packet_send_time.elapsed() >= Duration::from_secs(1) {
+            // Resend subscription packet
+            let _ = self.send_packet(
+                &Clock::new(),
+                PacketData::SubscriptionRequest(topics::SubscriptionRequest {
+                    topics: self.subscribed_topics.iter().map(|s| String::from_str(*s).expect("Failed to convert &str to String")).collect(),
+                }),
+                None,
+            );
+            self.subscription_packet_send_time = Instant::now();
+        }
+
         while let Ok(byte) = self.usb.read_byte() {
             if let Some(mut packet) = self.packet_finder.push_byte(byte)
                 && !packet.is_empty()
