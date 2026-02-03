@@ -108,6 +108,7 @@ fn main() -> ! {
                 channel::Number::Channel1,
                 Output::new(peripherals.GPIO1, Level::High, OutputConfig::default()),
             ),
+            invert: false,
         },
         right: MotorDriver {
             a: ledc.channel(
@@ -118,6 +119,7 @@ fn main() -> ! {
                 channel::Number::Channel3,
                 Output::new(peripherals.GPIO4, Level::High, OutputConfig::default()),
             ),
+            invert: true,
         },
         set_velocity_time: Instant::now(),
     };

@@ -150,7 +150,7 @@ impl MotionController {
         }
         
         // Calculate desired heading to target
-        let desired_heading = dy.atan2(dx);
+        let desired_heading = -dx.atan2(dy);
         
         // Calculate heading error
         let mut heading_error = desired_heading - self.current_orientation;
@@ -162,9 +162,10 @@ impl MotionController {
         while heading_error < -std::f64::consts::PI {
             heading_error += 2.0 * std::f64::consts::PI;
         }
+        println!("Heading error: {}", heading_error);
         
         // Simple proportional controller
-        const KP_LINEAR: f64 = 0.5;  // Linear velocity gain
+        const KP_LINEAR: f64 = 2.0;  // Linear velocity gain
         const KP_ANGULAR: f64 = 2.0; // Angular velocity gain
         const MAX_LINEAR_VEL: f64 = 0.5;  // m/s
         const MAX_ANGULAR_VEL: f64 = 2.0; // rad/s
@@ -178,10 +179,10 @@ impl MotionController {
         angular_velocity = angular_velocity.clamp(-MAX_ANGULAR_VEL, MAX_ANGULAR_VEL);
         
         // Reduce linear velocity if we need to turn significantly
-        if heading_error.abs() > std::f64::consts::PI / 4.0 {
-            // If heading error is more than 45 degrees, slow down forward motion
-            linear_velocity *= 0.3;
-        }
+        // if heading_error.abs() > std::f64::consts::PI / 4.0 {
+        //     // If heading error is more than 45 degrees, slow down forward motion
+        //     linear_velocity *= 0.3;
+        // }
         
         Some(topics::MotionVelocityRequest {
             linear_velocity: linear_velocity as f32,

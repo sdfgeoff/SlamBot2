@@ -1,19 +1,17 @@
-# Packet Encoding
+# SLAM Robot
 
-A `no_std` compatible Rust crate for robust packet encoding and decoding using a layered approach with CBOR serialization, CRC16 checksums, and COBS (Consistent Overhead Byte Stuffing) framing.
+This repo houses the software for a skid-steer robot that does SLAM.
+The basic architecture is:
 
-## Overview
+```
+Cameras -> Onboard PC -> Embedded devices
+               |
+               V
+          Web Server for control
+```
 
-This crate provides reliable packet communication by combining three encoding layers:
+The communication of the cameras is USB, the communication to the embedded devices and webpage is via a COBS (Consistent Overhead Byte Stuffing), CBOR (Concise Binary Object Representation) encoding. Communication is a pub-sub architecture.
 
-1. **CBOR Serialization** - Converts Rust structs to/from compact binary format using `minicbor-serde`
-2. **CRC16 Checksums** - Adds data integrity verification using ARC polynomial
-3. **COBS Framing** - Provides packet boundary detection with consistent overhead byte stuffing
+The frontend (`web_interface`) is written in typescript, but uses a WASM bundle to handle packet encoding/decoding. Communication is over websocket.
 
-The encoding format is: `COBS(CBOR(MESSAGE) + CRC16(CBOR(MESSAGE)))`
 
-## Features
-
-- **`no_std` and `std` compatible** - Works in embedded environments without heap allocation
-- **Serde integration** - Automatic serialization for any type implementing `Serialize`/`Deserialize`
-- **Packet finder** - Stream-based packet detection for serial communication, looks for 0x00 byte leading and trailing bytes

@@ -14,26 +14,28 @@ use topics::MotionVelocityRequest;
 pub struct MotorDriver<'a> {
     pub a: Channel<'a, LowSpeed>,
     pub b: Channel<'a, LowSpeed>,
+    pub invert: bool,
 }
 
 impl<'a> MotorDriver<'a> {
     pub fn set_speed(&mut self, speed: f32) {
         let clamped_speed = speed.clamp(-1.0, 1.0);
-        if speed < 0.01 && speed > -0.01 {
+        let output_speed = if self.invert { -clamped_speed } else { clamped_speed };
+        if output_speed < 0.01 && output_speed > -0.01 {
             self.a.set_duty_hw(0);
             self.b.set_duty_hw(0);
             return;
         }
         let amax = self.a.max_duty_cycle();
         let bmax = self.b.max_duty_cycle();
-        if clamped_speed >= 0.0 {
+        if output_speed >= 0.0 {
             self.a
-                .set_duty_hw(((1.0 - clamped_speed) * amax as f32) as u32);
+                .set_duty_hw(((1.0 - output_speed) * amax as f32) as u32);
             self.b.set_duty_hw(bmax as u32);
         } else {
             self.a.set_duty_hw(amax as u32);
             self.b
-                .set_duty_hw(((1.0 + clamped_speed) * bmax as f32) as u32);
+                .set_duty_hw(((1.0 + output_speed) * bmax as f32) as u32);
         }
     }
 }
@@ -46,22 +48,38 @@ pub struct MotorControllers<'a> {
 
 
 impl<'a> MotorControllers<'a> {
+
+    pub fn velocity_to_speed_percent(&self, velocity: f32) -> f32 {
+        let wheel_rpm = (velocity / WHEEL_CIRCUMFERENCE) * 60.0;
+        let speed_percent = wheel_rpm / NOMINAL_MAX_RPM;
+        speed_percent
+    }
+
     pub fn handle_speed_request(&mut self, request: &MotionVelocityRequest) {
-        let v = request.linear_velocity;
         let w = request.angular_velocity;
 
-        let left_wheel_velocity = v - (w * WHEEL_BASE_WIDTH / 2.0);
-        let right_wheel_velocity = v + (w * WHEEL_BASE_WIDTH / 2.0);
+        let mut vel = f32::clamp(self.velocity_to_speed_percent(request.linear_velocity), -1.0, 1.0);
+        let right_add_vel = f32::clamp(self.velocity_to_speed_percent(w * WHEEL_BASE_WIDTH / 2.0), -1.0, 1.0);
+        let left_add_vel = -right_add_vel;
 
-        let left_rpm = (left_wheel_velocity / WHEEL_CIRCUMFERENCE) * 60.0;
-        let right_rpm = (right_wheel_velocity / WHEEL_CIRCUMFERENCE) * 60.0;
-
-        let left_speed = left_rpm / NOMINAL_MAX_RPM;
-        let right_speed = right_rpm / NOMINAL_MAX_RPM;
+        // We want to prioritize angular velocity if the combined speeds exceed 100% or -100%
+        let max_combined = vel.abs() + right_add_vel.abs(); // We know that left and right are inverse
+        if max_combined > 1.0 {
+            if vel > 0.0 {
+                vel -= right_add_vel.abs();
+            } else {
+                vel += right_add_vel.abs();
+            }
+        }
+        
+        let left_speed = vel + left_add_vel;
+        let right_speed = vel + right_add_vel;
 
         self.left.set_speed(left_speed);
         self.right.set_speed(right_speed);
+
         self.set_velocity_time = Instant::now();
+
     }
 
     pub fn tick(&mut self) {
